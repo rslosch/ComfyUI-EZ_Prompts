@@ -28,7 +28,18 @@ app.registerExtension({
                 this.setupInitialWidgets();
                 this.loadAvailableTemplates();
                 
+                // Set up periodic check to ensure wildcard widgets stay hidden
+                this.setupWidgetHidingCheck();
+                
                 return result;
+            };
+            
+            // Set up periodic check to ensure wildcard widgets stay hidden
+            nodeType.prototype.setupWidgetHidingCheck = function() {
+                // Check every 2 seconds to ensure widgets stay hidden
+                setInterval(() => {
+                    this.ensureWildcardWidgetsHidden();
+                }, 2000);
             };
             
             // Setup initial widgets
@@ -58,8 +69,97 @@ app.registerExtension({
                 // Find the populated widget
                 this.populatedWidget = this.widgets.find(w => w.name === "populated");
                 
+                // Hide all wildcard parameter widgets from INPUT_TYPES (they're handled by JavaScript)
+                this.hideWildcardParameterWidgets();
+                
                 // Add template text display widget
                 this.addTemplateDisplayWidget();
+            };
+            
+            // Hide wildcard parameter widgets from INPUT_TYPES to avoid UI clutter
+            nodeType.prototype.hideWildcardParameterWidgets = function() {
+                console.log("Hiding INPUT_TYPES wildcard parameter widgets...");
+                
+                // Get the list of wildcard parameters from the current template
+                const templateWidget = this.widgets.find(w => w.name === "template");
+                if (templateWidget && templateWidget.value !== "none") {
+                    const templateData = this.templateCache.get(templateWidget.value);
+                    if (templateData) {
+                        templateData.parameters.forEach(param => {
+                            // Find and hide the corresponding INPUT_TYPES widget
+                            const wildcardWidget = this.widgets.find(w => w.name === param.name);
+                            if (wildcardWidget) {
+                                // Hide the widget by setting it to not display
+                                wildcardWidget.hidden = true;
+                                wildcardWidget.visible = false;
+                                
+                                // Also try to remove it from the DOM if possible
+                                if (wildcardWidget.inputEl && wildcardWidget.inputEl.parentNode) {
+                                    wildcardWidget.inputEl.parentNode.style.display = 'none';
+                                }
+                                
+                                console.log(`Hidden INPUT_TYPES widget: ${param.name}`);
+                            }
+                        });
+                    }
+                }
+                
+                // Also hide any other widgets that look like wildcard parameters
+                this.widgets.forEach(widget => {
+                    // Check if this is a wildcard parameter widget (not our main widgets)
+                    if (widget.name !== "template" && 
+                        widget.name !== "mode" && 
+                        widget.name !== "seed" && 
+                        widget.name !== "wildcard_index" && 
+                        widget.name !== "populated" &&
+                        widget.name !== "template_preview") {
+                        
+                        // This is likely a wildcard parameter widget, hide it
+                        widget.hidden = true;
+                        widget.visible = false;
+                        
+                        if (widget.inputEl && widget.inputEl.parentNode) {
+                            widget.inputEl.parentNode.style.display = 'none';
+                        }
+                        
+                        console.log(`Hidden potential wildcard widget: ${widget.name}`);
+                    }
+                });
+            };
+            
+            // Ensure widgets stay hidden by periodically checking and re-hiding them
+            nodeType.prototype.ensureWildcardWidgetsHidden = function() {
+                // Use a more aggressive approach to hide widgets
+                this.widgets.forEach(widget => {
+                    // Check if this is a wildcard parameter widget (not our main widgets)
+                    if (widget.name !== "template" && 
+                        widget.name !== "mode" && 
+                        widget.name !== "seed" && 
+                        widget.name !== "wildcard_index" && 
+                        widget.name !== "populated" &&
+                        widget.name !== "template_preview") {
+                        
+                        // This is likely a wildcard parameter widget, hide it aggressively
+                        widget.hidden = true;
+                        widget.visible = false;
+                        
+                        // Try multiple DOM hiding approaches
+                        if (widget.inputEl) {
+                            if (widget.inputEl.parentNode) {
+                                widget.inputEl.parentNode.style.display = 'none';
+                                widget.inputEl.parentNode.style.visibility = 'hidden';
+                            }
+                            widget.inputEl.style.display = 'none';
+                            widget.inputEl.style.visibility = 'hidden';
+                        }
+                        
+                        // Also try to hide the widget container
+                        if (widget.container) {
+                            widget.container.style.display = 'none';
+                            widget.container.style.visibility = 'hidden';
+                        }
+                    }
+                });
             };
             
             // Add template display widget
@@ -167,6 +267,9 @@ app.registerExtension({
                 parameters.forEach(param => {
                     this.createParameterWidget(param);
                 });
+                
+                // Hide INPUT_TYPES wildcard parameter widgets to avoid UI clutter
+                this.hideWildcardParameterWidgets();
                 
                 // Refresh the populated field based on current mode
                 this.refreshPopulatedField();
