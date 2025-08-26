@@ -10,20 +10,9 @@ class EZPromptsNode:
     A node that dynamically creates input parameters based on selected templates
     """
     
-    # Class-level data that gets loaded once
-    _templates = None
-    _wildcards = None
-    
     def __init__(self):
-        # Initialize class-level data if not already done
-        if EZPromptsNode._templates is None:
-            EZPromptsNode._templates = self.load_templates()
-            EZPromptsNode._wildcards = self.load_wildcards()
-            self.populate_template_choices()
-        
-        # Use class-level data
-        self.templates = EZPromptsNode._templates
-        self.wildcards = EZPromptsNode._wildcards
+        self.templates = self.load_templates()
+        self.wildcards = self.load_wildcards()
     
     @classmethod
     def INPUT_TYPES(cls):
@@ -218,35 +207,18 @@ class EZPromptsNode:
         
         return (prompt_text,)
 
-    def get_populated_template(self, template_name):
-        """Get template data with populated wildcard choices"""
-        if template_name not in self.templates:
-            return None
-        
-        template_data = self.templates[template_name].copy()
-        
-        # Ensure parameters have choices populated
-        for param in template_data.get("parameters", []):
-            if "wildcard_file" in param:
-                wildcard_name = param["wildcard_file"]
-                wildcard_values = self.wildcards.get(wildcard_name, [])
-                
-                # Add "Random" as the first choice and set as default
-                choices = ["Random"] + wildcard_values
-                param["options"]["choices"] = choices
-                param["defaultValue"] = "Random"
-        
-        return template_data
-
 # Web route to serve template data to JavaScript
 @PromptServer.instance.routes.get("/api/custom/templates/{template_name}")
 async def get_template_data(request):
     template_name = request.match_info["template_name"]
     node = EZPromptsNode()
     
-    template_data = node.get_populated_template(template_name)
-    if template_data:
-        print(f"Returning populated template data for {template_name}: {template_data}")
+    # Populate choices before returning
+    node.populate_template_choices()
+    
+    if template_name in node.templates:
+        template_data = node.templates[template_name]
+        print(f"Returning template data for {template_name}: {template_data}")
         return web.json_response(template_data)
     else:
         return web.json_response({"error": "Template not found"}, status=404)

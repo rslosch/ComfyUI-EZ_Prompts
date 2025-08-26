@@ -101,14 +101,12 @@ app.registerExtension({
                 }
                 
                 try {
-                    console.log(`Fetching template data for: ${templateName}`);
                     const response = await fetch(`/api/custom/templates/${templateName}`);
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     
                     const templateData = await response.json();
-                    console.log(`Received template data:`, templateData);
                     
                     // Cache the data
                     this.templateCache.set(templateName, templateData);
@@ -123,17 +121,14 @@ app.registerExtension({
             // Apply template to the node
             nodeType.prototype.applyTemplate = function(templateData) {
                 console.log("Applying template:", templateData);
-                console.log("Template parameters:", templateData.parameters);
                 
                 const { name, text, parameters = [] } = templateData;
                 
                 // Update template text display with the raw template (with placeholders)
                 this.templateTextWidget.value = text;
-                console.log("Set template text widget to:", text);
                 
                 // Create parameter widgets
-                parameters.forEach((param, index) => {
-                    console.log(`Creating parameter ${index + 1}/${parameters.length}:`, param);
+                parameters.forEach(param => {
                     this.createParameterWidget(param);
                 });
                 
@@ -242,17 +237,8 @@ app.registerExtension({
                         widget.wildcardFile = wildcard_file;
                     }
                     
-                    console.log("Created widget:", name, widget);
+                    console.log("Created widget:", name, widget, "choices:", options.choices?.length || 0);
                     console.log("Widget values:", widget.options?.values);
-                    console.log("Widget current value:", widget.value);
-                    console.log("Widget choices:", options.choices?.length || 0);
-                    
-                    // Verify the widget has the correct values
-                    if (widget.options && widget.options.values) {
-                        console.log(`Widget ${name} final values:`, widget.options.values);
-                    } else {
-                        console.warn(`Widget ${name} missing values in options`);
-                    }
                 }
                 
                 return widget;
@@ -287,15 +273,11 @@ app.registerExtension({
                 }
                 
                 let previewText = templateData.text;
-                console.log("Updating template preview. Original text:", previewText);
-                console.log("Dynamic widgets:", this.dynamicWidgets.size);
                 
                 // Replace parameter placeholders with current values
                 this.dynamicWidgets.forEach((widget, paramName) => {
                     const placeholder = `{${paramName}}`;
                     let value = widget.value !== undefined ? String(widget.value) : '';
-                    
-                    console.log(`Processing parameter ${paramName}: placeholder="${placeholder}", value="${value}"`);
                     
                     // If value is "Random", show a placeholder or random selection
                     if (value === "Random") {
@@ -306,18 +288,14 @@ app.registerExtension({
                         } else {
                             value = "[Random]";
                         }
-                        console.log(`Random value expanded to: "${value}"`);
                     }
                     
                     // Replace all occurrences of the placeholder
-                    const beforeReplace = previewText;
                     previewText = previewText.replace(new RegExp(placeholder, 'g'), value);
-                    console.log(`Replaced "${placeholder}" with "${value}". Before: "${beforeReplace}", After: "${previewText}"`);
                 });
                 
                 // Update the preview widget
                 this.templateTextWidget.value = previewText;
-                console.log("Final preview text:", previewText);
                 
                 // Force a redraw to update the display
                 this.setSize(this.computeSize());
