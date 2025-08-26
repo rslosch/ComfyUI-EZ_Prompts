@@ -237,6 +237,17 @@ app.registerExtension({
                         widget.wildcardFile = wildcard_file;
                     }
                     
+                    // Ensure the widget is properly connected to the node's inputs
+                    if (this.inputs) {
+                        // Find the corresponding input
+                        const inputIndex = this.inputs.findIndex(input => input.name === name);
+                        if (inputIndex >= 0) {
+                            // Connect widget to input
+                            widget.inputIndex = inputIndex;
+                            console.log(`Connected widget ${name} to input index ${inputIndex}`);
+                        }
+                    }
+                    
                     console.log("Created widget:", name, widget, "choices:", options.choices?.length || 0);
                     console.log("Widget values:", widget.options?.values);
                 }
@@ -279,15 +290,9 @@ app.registerExtension({
                     const placeholder = `{${paramName}}`;
                     let value = widget.value !== undefined ? String(widget.value) : '';
                     
-                    // If value is "Random", show a placeholder or random selection
+                    // If value is "Random", show a placeholder indicating it will be randomly selected
                     if (value === "Random") {
-                        const choices = widget.options?.values || [];
-                        const availableChoices = choices.filter(choice => choice !== "Random");
-                        if (availableChoices.length > 0) {
-                            value = `[Random: ${availableChoices.join(', ')}]`;
-                        } else {
-                            value = "[Random]";
-                        }
+                        value = "[Random Selection]";
                     }
                     
                     // Replace all occurrences of the placeholder
@@ -349,6 +354,16 @@ app.registerExtension({
             nodeType.prototype.showError = function(message) {
                 console.error(message);
                 // You could add toast notification here if available
+            };
+            
+            // Get current widget values for execution
+            nodeType.prototype.getWidgetValues = function() {
+                const values = {};
+                this.dynamicWidgets.forEach((widget, name) => {
+                    values[name] = widget.value;
+                });
+                console.log("Current widget values:", values);
+                return values;
             };
             
             // Override serialize to save dynamic widget values

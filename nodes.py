@@ -13,13 +13,13 @@ class EZPromptsNode:
     def __init__(self):
         self.templates = self.load_templates()
         self.wildcards = self.load_wildcards()
+        # Populate template choices immediately
+        self.populate_template_choices()
     
     @classmethod
     def INPUT_TYPES(cls):
         # Load templates to get available choices
-        templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ComfyUI-EZ_Prompts", "templates")
-        if not os.path.exists(templates_dir):
-            templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+        templates_dir = os.path.join(os.path.dirname(__file__), "templates")
         
         template_choices = ["none"]
         if os.path.exists(templates_dir):
@@ -28,13 +28,30 @@ class EZPromptsNode:
                     template_name = filename[:-5]  # Remove .json extension
                     template_choices.append(template_name)
         
+        # Load all possible wildcard parameters from templates
+        optional_inputs = {}
+        if os.path.exists(templates_dir):
+            for filename in os.listdir(templates_dir):
+                if filename.endswith('.json'):
+                    template_path = os.path.join(templates_dir, filename)
+                    try:
+                        with open(template_path, 'r', encoding='utf-8') as f:
+                            template_data = json.load(f)
+                        
+                        if "variables" in template_data:
+                            for var_name in template_data["variables"].keys():
+                                optional_inputs[var_name] = ("STRING", {"default": "Random"})
+                    except Exception as e:
+                        print(f"Error loading template {filename} for INPUT_TYPES: {e}")
+        
+        print(f"INPUT_TYPES - Template choices: {template_choices}")
+        print(f"INPUT_TYPES - Optional inputs: {list(optional_inputs.keys())}")
+        
         return {
             "required": {
                 "template": (template_choices, {"default": "none"}),
             },
-            "optional": {
-                # Dynamic inputs will be added by JavaScript
-            },
+            "optional": optional_inputs,
             "hidden": {
                 "unique_id": "UNIQUE_ID",
                 "extra_pnginfo": "EXTRA_PNGINFO"
@@ -164,6 +181,22 @@ class EZPromptsNode:
         
         print("Template choices populated.")
     
+    def get_node_info(self):
+        """Get information about the current node state for debugging"""
+        info = {
+            "templates": list(self.templates.keys()),
+            "wildcards": list(self.wildcards.keys()),
+            "template_params": {}
+        }
+        
+        for template_name, template_data in self.templates.items():
+            info["template_params"][template_name] = {
+                "parameters": [param["name"] for param in template_data.get("parameters", [])],
+                "wildcard_files": [param.get("wildcard_file") for param in template_data.get("parameters", [])]
+            }
+        
+        return info
+
     def generate_prompt(self, template, unique_id=None, extra_pnginfo=None, **kwargs):
         """Generate the final prompt by substituting template parameters"""
         
@@ -177,10 +210,16 @@ class EZPromptsNode:
         # Start with the base template text
         prompt_text = template_data["text"]
         
+        print(f"Generating prompt for template: {template}")
+        print(f"Template text: {prompt_text}")
+        print(f"Received kwargs: {kwargs}")
+        
         # Replace placeholders with parameter values
         for param in template_data["parameters"]:
             param_name = param["name"]
-            param_value = kwargs.get(param_name, param.get("defaultValue", ""))
+            param_value = kwargs.get(param_name, param.get("defaultValue", "Random"))
+            
+            print(f"Processing parameter: {param_name} = {param_value}")
             
             # Handle "Random" values by selecting from available choices
             if param_value == "Random":
@@ -190,6 +229,7 @@ class EZPromptsNode:
                     available_choices = [choice for choice in choices if choice != "Random"]
                     if available_choices:
                         param_value = random.choice(available_choices)
+                        print(f"  Random selection for {param_name}: {param_value}")
                     else:
                         param_value = ""
                 else:
@@ -203,9 +243,21 @@ class EZPromptsNode:
             
             # Replace the placeholder
             placeholder = "{" + param_name + "}"
+            old_text = prompt_text
             prompt_text = prompt_text.replace(placeholder, param_value)
+            
+            if old_text != prompt_text:
+                print(f"  Replaced {placeholder} with '{param_value}'")
         
+        print(f"Final prompt: {prompt_text}")
         return (prompt_text,)
+
+@PromptServer.instance.routes.get("/api/custom/debug/node_info")
+async def get_node_debug_info(request):
+    node = EZPromptsNode()
+    info = node.get_node_info()
+    print(f"Debug info requested: {info}")
+    return web.json_response(info)
 
 # Web route to serve template data to JavaScript
 @PromptServer.instance.routes.get("/api/custom/templates/{template_name}")
