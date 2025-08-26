@@ -28,7 +28,7 @@ class EZPromptsNode:
                     template_name = filename[:-5]  # Remove .json extension
                     template_choices.append(template_name)
         
-        # Load all possible wildcard parameters from templates
+        # Load all possible wildcard parameters from templates with their choices
         optional_inputs = {}
         if os.path.exists(templates_dir):
             for filename in os.listdir(templates_dir):
@@ -39,8 +39,30 @@ class EZPromptsNode:
                             template_data = json.load(f)
                         
                         if "variables" in template_data:
-                            for var_name in template_data["variables"].keys():
-                                optional_inputs[var_name] = ("STRING", {"default": "Random"})
+                            for var_name, wildcard_file in template_data["variables"].items():
+                                # Load wildcard choices from the corresponding .txt file
+                                wildcard_name = wildcard_file.replace('.txt', '')
+                                wildcard_path = os.path.join(os.path.dirname(__file__), "wildcards", f"{wildcard_name}.txt")
+                                
+                                choices = ["Random"]  # Always start with Random
+                                if os.path.exists(wildcard_path):
+                                    try:
+                                        with open(wildcard_path, 'r', encoding='utf-8') as wf:
+                                            lines = wf.readlines()
+                                            # Clean up lines and remove empty ones
+                                            wildcard_values = [line.strip() for line in lines if line.strip()]
+                                            choices.extend(wildcard_values)
+                                    except Exception as e:
+                                        print(f"Error loading wildcard {wildcard_name} for INPUT_TYPES: {e}")
+                                else:
+                                    print(f"Warning: Wildcard file {wildcard_name}.txt not found for INPUT_TYPES")
+                                
+                                # Define as COMBO dropdown with loaded choices
+                                optional_inputs[var_name] = ("COMBO", {
+                                    "default": "Random",
+                                    "choices": choices
+                                })
+                                
                     except Exception as e:
                         print(f"Error loading template {filename} for INPUT_TYPES: {e}")
         
@@ -56,7 +78,7 @@ class EZPromptsNode:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 "wildcard_index": ("INT", {"default": 0, "min": 0, "max": 99999}),
                 "populated": ("STRING", {"multiline": True, "default": ""}),
-                **optional_inputs  # Include all wildcard parameters
+                **optional_inputs  # Include all wildcard parameters as COMBO dropdowns
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -116,7 +138,7 @@ class EZPromptsNode:
                                 "label": var_name.replace('_', ' ').title(),
                                 "defaultValue": "Random",
                                 "wildcard_file": wildcard_name,  # Store reference to wildcard file
-                                "options": {
+                        "options": {
                                     "choices": []  # Will be populated with wildcard values
                                 }
                             }
@@ -260,17 +282,18 @@ class EZPromptsNode:
         # Set seed for deterministic randomization
         random.seed(seed)
         
-        # Replace placeholders with parameter values
+        # Replace placeholders with parameter values from kwargs (native INPUT_TYPES)
         for i, param in enumerate(template_data["parameters"]):
             param_name = param["name"]
-            # Get value from kwargs (which comes from INPUT_TYPES) or use default
-            param_value = kwargs.get(param_name, param.get("defaultValue", "Random"))
+            # Get value from kwargs (which comes from native INPUT_TYPES COMBO dropdowns)
+            param_value = kwargs.get(param_name, "Random")
             
             print(f"Processing parameter: {param_name} = {param_value}")
             
             # Handle "Random" values by selecting from available choices
             if param_value == "Random":
-                choices = param["options"]["choices"]
+                # Get the choices from the template data
+                choices = param.get("options", {}).get("choices", [])
                 if len(choices) > 1:  # More than just "Random"
                     # Select random choice excluding "Random"
                     available_choices = [choice for choice in choices if choice != "Random"]
