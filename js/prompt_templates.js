@@ -561,7 +561,17 @@ app.registerExtension({
             
             console.log("EZ Prompts: Creating variable widgets for:", Object.keys(variables));
             
-            // Create widgets for each variable
+            // Remove any existing variable widgets that don't belong to this template
+            this.widgets = this.widgets.filter(w => {
+                // Keep core widgets (template, mode, seed)
+                if (['template', 'mode', 'seed'].includes(w.name)) {
+                    return true;
+                }
+                // Keep only widgets that belong to this template
+                return variables[w.name];
+            });
+            
+            // Create widgets for each variable in this template
             Object.entries(variables).forEach(([varName, wildcardFile]) => {
                 // Check if widget already exists
                 const existingWidget = this.widgets.find(w => w.name === varName);
@@ -575,6 +585,12 @@ app.registerExtension({
                 const widget = this.addWidget("COMBO", varName, "🎲 Random", (value) => {
                     console.log("EZ Prompts: Variable widget changed:", varName, value);
                     this.variableOverrides[varName] = value;
+                    
+                    // Update the Python node's variable_overrides
+                    if (this.set_variable_overrides) {
+                        this.set_variable_overrides(this.variableOverrides);
+                    }
+                    
                     this.updateLivePreview();
                     
                     // Trigger node execution
@@ -582,6 +598,9 @@ app.registerExtension({
                         this.graph.change();
                     }
                 }, { values: options });
+                
+                // Store the widget reference for later access
+                widget.varName = varName;
                 
                 console.log("EZ Prompts: Created widget for:", varName);
             });
@@ -644,6 +663,12 @@ app.registerExtension({
                 setTimeout(() => this.rebuildVariableWidgets(), 50);
             }
             
+            // Store variable widget values for Python access
+            if (widget.varName) {
+                this.variableOverrides[widget.varName] = value;
+                console.log("EZ Prompts: Stored override for", widget.varName, "=", value);
+            }
+            
             return result;
         };
         
@@ -667,6 +692,11 @@ app.registerExtension({
             
             // Initialize variable overrides storage
             node.variableOverrides = {};
+            
+            // Also initialize the Python node's variable_overrides
+            if (node.set_variable_overrides) {
+                node.set_variable_overrides({});
+            }
         }
     }
 });

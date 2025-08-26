@@ -105,6 +105,14 @@ class EZPromptsNode:
                     
         return wildcard_data
     
+    def set_variable_overrides(self, overrides: Dict[str, str]):
+        """Set variable overrides from the UI"""
+        self.variable_overrides = overrides
+    
+    def get_variable_overrides(self) -> Dict[str, str]:
+        """Get current variable overrides"""
+        return getattr(self, 'variable_overrides', {})
+    
     def generate_prompt(self, template: str, mode: str, seed: int, unique_id=None, **kwargs) -> Tuple[str, str]:
         """Generate a prompt using the selected template and parameters"""
         
@@ -125,8 +133,8 @@ class EZPromptsNode:
         sequential_state = getattr(self, '_sequential_state', {})
         
         for var_name, wildcard_file in variables.items():
-            # Check if there's a widget value for this variable
-            widget_value = kwargs.get(var_name, None)
+            # Check if there's a stored override from the UI
+            widget_value = getattr(self, 'variable_overrides', {}).get(var_name, None)
             
             if widget_value and widget_value != "🎲 Random":
                 # Use widget value (set by UI)
