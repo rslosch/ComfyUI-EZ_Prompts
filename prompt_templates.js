@@ -236,7 +236,7 @@ const wildcardData = {
     "studio_environment.txt": ["a professional photo studio", "an upscale photography studio"],
     "formal_clothing.txt": ["business suit", "blazer", "dress shirt", "formal blouse"],
     "studio_pose.txt": ["seated in director's chair", "standing with confident posture"],
-    "background_type.txt": ["seamless white", "textured gray", "solid black", "gradient backdrop"]
+    "studio_background.txt": ["seamless white", "textured gray", "solid black", "gradient backdrop"]
 };
 
 function highlightVariables(template) {
@@ -296,21 +296,25 @@ app.registerExtension({
             // Load template data
             await loadTemplateData();
             
+            // Store original methods
             const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+            const originalOnWidget = nodeType.prototype.onWidget;
+            const originalOnRemoved = nodeType.prototype.onRemoved;
             
+            // Override onNodeCreated to initialize our custom UI
             nodeType.prototype.onNodeCreated = function() {
                 const result = originalOnNodeCreated?.apply(this, arguments);
                 
                 // Initialize variable overrides storage
                 this._variable_overrides = {};
                 
-                // Create main container
-                this.ezContainer = this.addWidget("text", "EZ_Prompts_UI", "", () => {}, {
+                // Create custom widget for the UI
+                this.ezWidget = this.addWidget("text", "EZ_Prompts_UI", "", () => {}, {
                     serialize: false // Don't save this widget
                 });
                 
-                // Build the custom UI
-                this.buildCustomUI();
+                // Build the custom UI after a short delay to ensure the widget is created
+                setTimeout(() => this.buildCustomUI(), 100);
                 
                 return result;
             };
@@ -374,8 +378,20 @@ app.registerExtension({
                 container.appendChild(liveSection);
                 this.livePreview = livePreview;
                 
-                // Add to DOM
-                document.body.appendChild(container);
+                // Find the widget element and attach our UI
+                if (this.ezWidget && this.ezWidget.element) {
+                    // Hide the original widget input
+                    this.ezWidget.element.style.display = "none";
+                    
+                    // Find the widget container and insert our UI
+                    const widgetContainer = this.ezWidget.element.closest('.comfy-widget');
+                    if (widgetContainer) {
+                        widgetContainer.appendChild(container);
+                    } else {
+                        // Fallback: insert before the widget element
+                        this.ezWidget.element.parentNode.insertBefore(container, this.ezWidget.element);
+                    }
+                }
                 
                 // Update content
                 this.updateTemplateUI();
@@ -387,76 +403,91 @@ app.registerExtension({
                 const currentTemplate = templateWidget?.value;
                 
                 if (!currentTemplate || !templateCache[currentTemplate]) {
-                    this.templatePreview.innerHTML = "Template not found";
-                    this.variablesContainer.innerHTML = "";
-                    this.livePreview.innerHTML = "No template selected";
+                    if (this.templatePreview) {
+                        this.templatePreview.innerHTML = "Template not found";
+                    }
+                    if (this.variablesContainer) {
+                        this.variablesContainer.innerHTML = "";
+                    }
+                    if (this.livePreview) {
+                        this.livePreview.innerHTML = "No template selected";
+                    }
                     return;
                 }
                 
                 const templateData = templateCache[currentTemplate];
                 
                 // Update template preview
-                this.templatePreview.innerHTML = highlightVariables(templateData.template);
+                if (this.templatePreview) {
+                    this.templatePreview.innerHTML = highlightVariables(templateData.template);
+                }
                 
                 // Clear and rebuild variables UI
-                this.variablesContainer.innerHTML = "";
-                const variables = templateData.variables || {};
-                
-                Object.entries(variables).forEach(([varName, wildcardFile]) => {
-                    const control = document.createElement("div");
-                    control.className = "ez-prompts-variable-control";
+                if (this.variablesContainer) {
+                    this.variablesContainer.innerHTML = "";
+                    const variables = templateData.variables || {};
                     
-                    const label = document.createElement("div");
-                    label.className = "ez-prompts-variable-label";
-                    label.textContent = varName.replace(/_/g, ' ');
-                    control.appendChild(label);
-                    
-                    const select = document.createElement("select");
-                    select.className = "ez-prompts-variable-select";
-                    
-                    // Add options
-                    const randomOption = document.createElement("option");
-                    randomOption.value = "🎲 Random";
-                    randomOption.textContent = "🎲 Random";
-                    select.appendChild(randomOption);
-                    
-                    // Add wildcard options
-                    const options = wildcardData[wildcardFile] || [];
-                    options.forEach(option => {
-                        const optionElement = document.createElement("option");
-                        optionElement.value = option;
-                        optionElement.textContent = option;
-                        select.appendChild(optionElement);
-                    });
-                    
-                    // Set current value
-                    const currentValue = this._variable_overrides[varName] || "🎲 Random";
-                    select.value = currentValue;
-                    
-                    // Update styling
-                    if (currentValue !== "🎲 Random") {
-                        select.classList.add("overridden");
-                    }
-                    
-                    // Handle changes
-                    select.addEventListener('change', (e) => {
-                        const newValue = e.target.value;
-                        this._variable_overrides[varName] = newValue;
+                    Object.entries(variables).forEach(([varName, wildcardFile]) => {
+                        const control = document.createElement("div");
+                        control.className = "ez-prompts-variable-control";
+                        
+                        const label = document.createElement("div");
+                        label.className = "ez-prompts-variable-label";
+                        label.textContent = varName.replace(/_/g, ' ');
+                        control.appendChild(label);
+                        
+                        const select = document.createElement("select");
+                        select.className = "ez-prompts-variable-select";
+                        
+                        // Add options
+                        const randomOption = document.createElement("option");
+                        randomOption.value = "🎲 Random";
+                        randomOption.textContent = "🎲 Random";
+                        select.appendChild(randomOption);
+                        
+                        // Add wildcard options
+                        const options = wildcardData[wildcardFile] || [];
+                        options.forEach(option => {
+                            const optionElement = document.createElement("option");
+                            optionElement.value = option;
+                            optionElement.textContent = option;
+                            select.appendChild(optionElement);
+                        });
+                        
+                        // Set current value
+                        const currentValue = this._variable_overrides[varName] || "🎲 Random";
+                        select.value = currentValue;
                         
                         // Update styling
-                        if (newValue === "🎲 Random") {
-                            select.classList.remove("overridden");
-                        } else {
+                        if (currentValue !== "🎲 Random") {
                             select.classList.add("overridden");
                         }
                         
-                        // Update live preview
-                        this.updateLivePreview();
+                        // Handle changes
+                        select.addEventListener('change', (e) => {
+                            const newValue = e.target.value;
+                            this._variable_overrides[varName] = newValue;
+                            
+                            // Update styling
+                            if (newValue === "🎲 Random") {
+                                select.classList.remove("overridden");
+                            } else {
+                                select.classList.add("overridden");
+                            }
+                            
+                            // Update live preview
+                            this.updateLivePreview();
+                            
+                            // Trigger node execution to update the output
+                            if (this.graph) {
+                                this.graph.change();
+                            }
+                        });
+                        
+                        control.appendChild(select);
+                        this.variablesContainer.appendChild(control);
                     });
-                    
-                    control.appendChild(select);
-                    this.variablesContainer.appendChild(control);
-                });
+                }
                 
                 // Update live preview
                 this.updateLivePreview();
@@ -467,13 +498,12 @@ app.registerExtension({
                 const templateWidget = this.widgets.find(w => w.name === "template");
                 const currentTemplate = templateWidget?.value;
                 
-                if (currentTemplate) {
+                if (currentTemplate && this.livePreview) {
                     this.livePreview.innerHTML = generateLivePreview(currentTemplate, this._variable_overrides);
                 }
             };
             
-            // Hook into widget changes
-            const originalOnWidget = nodeType.prototype.onWidget;
+            // Override onWidget to handle template changes
             nodeType.prototype.onWidget = function(widget, value) {
                 const result = originalOnWidget?.apply(this, arguments);
                 
@@ -486,8 +516,7 @@ app.registerExtension({
                 return result;
             };
             
-            // Handle cleanup
-            const originalOnRemoved = nodeType.prototype.onRemoved;
+            // Override onRemoved to clean up our UI
             nodeType.prototype.onRemoved = function() {
                 if (this.ezUIContainer) {
                     this.ezUIContainer.remove();

@@ -84,6 +84,14 @@ class EZPromptsNode:
             print(f"Error loading wildcard file {wildcard_file}: {e}")
             return []
     
+    def set_variable_overrides(self, overrides: Dict[str, str]):
+        """Set variable overrides from the UI"""
+        self._variable_overrides = overrides
+    
+    def get_variable_overrides(self) -> Dict[str, str]:
+        """Get current variable overrides"""
+        return getattr(self, '_variable_overrides', {})
+    
     def generate_prompt(self, template: str, mode: str, seed: int, unique_id=None, **kwargs) -> Tuple[str, str]:
         """Generate a prompt using the selected template and parameters"""
         
@@ -100,6 +108,7 @@ class EZPromptsNode:
         random.seed(seed)
         
         # Get variable overrides from the node's stored values
+        # The UI will set these via the _variable_overrides attribute
         variable_overrides = getattr(self, '_variable_overrides', {})
         
         # Process variables and generate values
@@ -110,7 +119,7 @@ class EZPromptsNode:
             override_value = variable_overrides.get(var_name, "🎲 Random")
             
             if override_value != "🎲 Random":
-                # Use overridden value
+                # Use overridden value from UI
                 variable_values[var_name] = override_value
             else:
                 # Generate value based on mode
