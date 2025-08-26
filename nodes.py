@@ -53,15 +53,21 @@ class EZPromptsNode:
         
         templates = {}
         
+        print(f"Loading templates from: {templates_dir}")
+        
         # Load all .json template files
         for filename in os.listdir(templates_dir):
             if filename.endswith('.json'):
                 template_name = filename[:-5]  # Remove .json extension
                 template_path = os.path.join(templates_dir, filename)
                 
+                print(f"Processing template file: {filename}")
+                
                 try:
                     with open(template_path, 'r', encoding='utf-8') as f:
                         template_data = json.load(f)
+                    
+                    print(f"  Template data: {template_data}")
                     
                     # Validate required fields
                     if all(key in template_data for key in ["name", "description", "template", "variables"]):
@@ -91,10 +97,12 @@ class EZPromptsNode:
                             converted_template["parameters"].append(param)
                         
                         templates[template_name] = converted_template
+                        print(f"  Converted template: {converted_template}")
                         
                 except Exception as e:
                     print(f"Error loading template {filename}: {e}")
         
+        print(f"Total templates loaded: {len(templates)}")
         return templates
     
     def load_wildcards(self):
@@ -111,6 +119,8 @@ class EZPromptsNode:
                 if "wildcard_file" in param:
                     referenced_wildcards.add(param["wildcard_file"])
         
+        print(f"Referenced wildcards: {referenced_wildcards}")
+        
         # Load only referenced wildcard files
         for wildcard_name in referenced_wildcards:
             wildcard_path = os.path.join(wildcards_dir, f"{wildcard_name}.txt")
@@ -123,26 +133,36 @@ class EZPromptsNode:
                     # Clean up lines and remove empty ones
                     values = [line.strip() for line in lines if line.strip()]
                     wildcards[wildcard_name] = values
+                    print(f"Loaded wildcard {wildcard_name}: {values}")
                     
                 except Exception as e:
                     print(f"Error loading wildcard {wildcard_name}: {e}")
             else:
                 print(f"Warning: Wildcard file {wildcard_name}.txt not found")
         
+        print(f"Total wildcards loaded: {len(wildcards)}")
         return wildcards
     
     def populate_template_choices(self):
         """Populate template parameter choices with wildcard values"""
+        print("Populating template choices...")
         for template_name, template_data in self.templates.items():
+            print(f"Processing template: {template_name}")
             for param in template_data.get("parameters", []):
                 if "wildcard_file" in param:
                     wildcard_name = param["wildcard_file"]
                     wildcard_values = self.wildcards.get(wildcard_name, [])
                     
+                    print(f"  Parameter: {param['name']}, Wildcard: {wildcard_name}, Values: {wildcard_values}")
+                    
                     # Add "Random" as the first choice and set as default
                     choices = ["Random"] + wildcard_values
                     param["options"]["choices"] = choices
                     param["defaultValue"] = "Random"
+                    
+                    print(f"  Final choices: {choices}")
+        
+        print("Template choices populated.")
     
     def generate_prompt(self, template, unique_id=None, extra_pnginfo=None, **kwargs):
         """Generate the final prompt by substituting template parameters"""
@@ -197,7 +217,9 @@ async def get_template_data(request):
     node.populate_template_choices()
     
     if template_name in node.templates:
-        return web.json_response(node.templates[template_name])
+        template_data = node.templates[template_name]
+        print(f"Returning template data for {template_name}: {template_data}")
+        return web.json_response(template_data)
     else:
         return web.json_response({"error": "Template not found"}, status=404)
 
@@ -205,6 +227,7 @@ async def get_template_data(request):
 async def get_template_list(request):
     node = EZPromptsNode()
     templates = [{"name": name, "label": data["name"]} for name, data in node.templates.items()]
+    print(f"Returning template list: {templates}")
     return web.json_response(templates)
 
 @PromptServer.instance.routes.get("/api/custom/wildcards/{wildcard_name}")
@@ -213,15 +236,19 @@ async def get_wildcard_data(request):
     node = EZPromptsNode()
     
     if wildcard_name in node.wildcards:
-        return web.json_response({
+        wildcard_data = {
             "name": wildcard_name,
             "values": node.wildcards[wildcard_name]
-        })
+        }
+        print(f"Returning wildcard data for {wildcard_name}: {wildcard_data}")
+        return web.json_response(wildcard_data)
     else:
+        print(f"Wildcard {wildcard_name} not found")
         return web.json_response({"error": "Wildcard not found"}, status=404)
 
 @PromptServer.instance.routes.get("/api/custom/wildcards/list")
 async def get_wildcard_list(request):
     node = EZPromptsNode()
     wildcards = [{"name": name, "values": values} for name, values in node.wildcards.items()]
+    print(f"Returning wildcard list: {wildcards}")
     return web.json_response(wildcards)

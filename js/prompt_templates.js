@@ -59,7 +59,7 @@ app.registerExtension({
                     this.templateTextWidget.inputEl = null; // Will be created on first draw
                     this.templateTextWidget.computeSize = () => {
                         const lines = this.templateTextWidget.value.split('\n').length;
-                        const height = Math.max(40, Math.min(lines * 20 + 20, 120));
+                        const height = Math.max(60, Math.min(lines * 20 + 40, 200));
                         return [0, height];
                     };
                 }
@@ -124,7 +124,7 @@ app.registerExtension({
                 
                 const { name, text, parameters = [] } = templateData;
                 
-                // Update template text display
+                // Update template text display with the raw template (with placeholders)
                 this.templateTextWidget.value = text;
                 
                 // Create parameter widgets
@@ -146,6 +146,8 @@ app.registerExtension({
                 const { name, type, label, defaultValue, options = {}, wildcard_file } = param;
                 
                 console.log("Creating parameter widget:", name, type, "wildcard:", wildcard_file);
+                console.log("Parameter options:", options);
+                console.log("Available choices:", options.choices);
                 
                 let widget;
                 const widgetOptions = { serialize: true };
@@ -191,6 +193,8 @@ app.registerExtension({
                     case "select":
                         // Ensure we have choices for select widgets
                         const choices = options.choices || [];
+                        console.log(`Creating select widget for ${name} with ${choices.length} choices:`, choices);
+                        
                         if (choices.length === 0 && wildcard_file) {
                             console.warn(`No choices available for wildcard: ${wildcard_file}`);
                         }
@@ -234,6 +238,7 @@ app.registerExtension({
                     }
                     
                     console.log("Created widget:", name, widget, "choices:", options.choices?.length || 0);
+                    console.log("Widget values:", widget.options?.values);
                 }
                 
                 return widget;
@@ -272,12 +277,28 @@ app.registerExtension({
                 // Replace parameter placeholders with current values
                 this.dynamicWidgets.forEach((widget, paramName) => {
                     const placeholder = `{${paramName}}`;
-                    const value = widget.value !== undefined ? String(widget.value) : '';
+                    let value = widget.value !== undefined ? String(widget.value) : '';
+                    
+                    // If value is "Random", show a placeholder or random selection
+                    if (value === "Random") {
+                        const choices = widget.options?.values || [];
+                        const availableChoices = choices.filter(choice => choice !== "Random");
+                        if (availableChoices.length > 0) {
+                            value = `[Random: ${availableChoices.join(', ')}]`;
+                        } else {
+                            value = "[Random]";
+                        }
+                    }
+                    
+                    // Replace all occurrences of the placeholder
                     previewText = previewText.replace(new RegExp(placeholder, 'g'), value);
                 });
                 
                 // Update the preview widget
                 this.templateTextWidget.value = previewText;
+                
+                // Force a redraw to update the display
+                this.setSize(this.computeSize());
             };
             
             // Update conditional widget display
