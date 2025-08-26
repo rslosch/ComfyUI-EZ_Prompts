@@ -236,7 +236,7 @@ app.registerExtension({
                 // Update template preview
                 this.updateTemplatePreview();
                 
-                // Mark node as modified
+                // Mark node as modified (but don't resize)
                 this.setDirtyCanvas(true, true);
             };
             
@@ -261,15 +261,9 @@ app.registerExtension({
                     const placeholder = `{${paramName}}`;
                     let value = widget.value !== undefined ? String(widget.value) : '';
                     
-                    // If value is "Random", show a placeholder indicating it will be randomly selected
+                    // If value is "Random", show the wildcard variable name
                     if (value === "Random") {
-                        const choices = widget.options?.values || [];
-                        const availableChoices = choices.filter(choice => choice !== "Random");
-                        if (availableChoices.length > 0) {
-                            value = `[Random: ${availableChoices.join(', ')}]`;
-                        } else {
-                            value = "[Random Selection]";
-                        }
+                        value = `{${paramName}}`; // Show the original placeholder
                     }
                     
                     // Replace all occurrences of the placeholder
@@ -281,8 +275,8 @@ app.registerExtension({
                     this.populatedWidget.value = previewText;
                 }
                 
-                // Force a redraw to update the display
-                this.setSize(this.computeSize());
+                // Don't resize the node on every parameter change - only update the display
+                // this.setSize(this.computeSize()); // Removed this line
             };
             
             // Clear all dynamic widgets
