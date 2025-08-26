@@ -128,23 +128,17 @@ app.registerExtension({
                 this.templateTextWidget.value = text;
                 
                 // Create parameter widgets
-                const widgetPromises = parameters.map(param => {
-                    return this.createParameterWidget(param);
+                parameters.forEach(param => {
+                    this.createParameterWidget(param);
                 });
                 
-                // Wait for all widgets to be created, then update preview
-                Promise.all(widgetPromises).then(() => {
-                    // Sync widget values with inputs
-                    this.syncWidgetValuesWithInputs();
-                    
-                    // Update template text with current parameter values
-                    this.updateTemplatePreview();
-                    
-                    // Resize node to fit new content
-                    this.setSize(this.computeSize());
-                    
-                    console.log(`Template "${name}" applied with ${parameters.length} parameters`);
-                });
+                // Update template text with current parameter values
+                this.updateTemplatePreview();
+                
+                // Resize node to fit new content
+                this.setSize(this.computeSize());
+                
+                console.log(`Template "${name}" applied with ${parameters.length} parameters`);
             };
             
             // Create a parameter widget
@@ -197,24 +191,18 @@ app.registerExtension({
                         break;
                         
                     case "select":
-                        // For select widgets, we need to load the wildcard values
-                        if (wildcard_file && (!options.choices || options.choices.length === 0)) {
-                            // Load wildcard values from server
-                            this.loadWildcardValues(wildcard_file, name, defaultValue, widgetOptions);
-                            return; // Widget will be created after loading
-                        }
-                        
-                        // Use existing choices if available
+                        // Ensure we have choices for select widgets
                         const choices = options.choices || [];
                         console.log(`Creating select widget for ${name} with ${choices.length} choices:`, choices);
                         
-                        if (choices.length === 0) {
-                            console.warn(`No choices available for parameter: ${name}`);
+                        if (choices.length === 0 && wildcard_file) {
+                            console.warn(`No choices available for wildcard: ${wildcard_file}`);
                         }
                         
                         // Set default to "Random" if available, otherwise first choice
                         const defaultVal = choices.includes("Random") ? "Random" : (choices[0] || "");
                         
+                        // Create the combo widget (dropdown)
                         widget = this.addWidget("combo", name, defaultVal,
                             (value) => this.onParameterChanged(name, value),
                             {
@@ -222,6 +210,12 @@ app.registerExtension({
                                 ...widgetOptions
                             }
                         );
+                        
+                        // Ensure the widget is properly configured as a dropdown
+                        if (widget && widget.options) {
+                            widget.options.values = choices;
+                            console.log(`Widget ${name} configured with values:`, widget.options.values);
+                        }
                         break;
                         
                     case "boolean":
@@ -268,77 +262,6 @@ app.registerExtension({
                 return widget;
             };
             
-            // Load wildcard values from server and create widget
-            nodeType.prototype.loadWildcardValues = async function(wildcardName, paramName, defaultValue, widgetOptions) {
-                try {
-                    console.log(`Loading wildcard values for ${paramName} from ${wildcardName}`);
-                    
-                    const response = await fetch(`/api/custom/wildcards/${wildcardName}`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const wildcardData = await response.json();
-                    const choices = ["Random", ...wildcardData.values];
-                    
-                    console.log(`Loaded wildcard choices for ${paramName}:`, choices);
-                    
-                    // Create the widget with loaded choices
-                    const widget = this.addWidget("combo", paramName, "Random",
-                        (value) => this.onParameterChanged(paramName, value),
-                        {
-                            values: choices,
-                            ...widgetOptions
-                        }
-                    );
-                    
-                    if (widget) {
-                        // Store widget reference
-                        this.dynamicWidgets.set(paramName, widget);
-                        
-                        // Set display label
-                        const label = paramName.replace('_', ' ').title();
-                        if (label !== paramName) {
-                            widget.label = label;
-                        }
-                        
-                        // Store wildcard reference
-                        widget.wildcardFile = wildcardName;
-                        
-                        // Connect to input if available
-                        if (this.inputs) {
-                            const inputIndex = this.inputs.findIndex(input => input.name === paramName);
-                            if (inputIndex >= 0) {
-                                widget.inputIndex = inputIndex;
-                                console.log(`Connected widget ${paramName} to input index ${inputIndex}`);
-                            }
-                        }
-                        
-                        console.log(`Created wildcard widget for ${paramName} with ${choices.length} choices`);
-                        
-                        // Update template preview after creating widget
-                        this.updateTemplatePreview();
-                    }
-                    
-                } catch (error) {
-                    console.error(`Failed to load wildcard ${wildcardName} for ${paramName}:`, error);
-                    
-                    // Create widget with just "Random" as fallback
-                    const widget = this.addWidget("combo", paramName, "Random",
-                        (value) => this.onParameterChanged(paramName, value),
-                        {
-                            values: ["Random"],
-                            ...widgetOptions
-                        }
-                    );
-                    
-                    if (widget) {
-                        this.dynamicWidgets.set(paramName, widget);
-                        console.log(`Created fallback widget for ${paramName}`);
-                    }
-                }
-            };
-            
             // Handle parameter value changes
             nodeType.prototype.onParameterChanged = function(parameterName, value) {
                 console.log("Parameter changed:", parameterName, "=", value);
@@ -349,18 +272,8 @@ app.registerExtension({
                 // Handle conditional widget display
                 this.updateConditionalWidgets();
                 
-                // Sync widget values with inputs
-                this.syncWidgetValuesWithInputs();
-                
-                // Mark node as modified and trigger execution update
+                // Mark node as modified
                 this.setDirtyCanvas(true, true);
-                
-                // Ensure the widget value is properly stored
-                const widget = this.dynamicWidgets.get(parameterName);
-                if (widget) {
-                    widget.value = value;
-                    console.log(`Widget ${parameterName} value updated to: ${value}`);
-                }
             };
             
             // Update template preview with current parameter values
@@ -386,7 +299,13 @@ app.registerExtension({
                     
                     // If value is "Random", show a placeholder indicating it will be randomly selected
                     if (value === "Random") {
-                        value = "[Random Selection]";
+                        const choices = widget.options?.values || [];
+                        const availableChoices = choices.filter(choice => choice !== "Random");
+                        if (availableChoices.length > 0) {
+                            value = `[Random: ${availableChoices.join(', ')}]`;
+                        } else {
+                            value = "[Random Selection]";
+                        }
                     }
                     
                     // Replace all occurrences of the placeholder
@@ -458,30 +377,6 @@ app.registerExtension({
                 });
                 console.log("Current widget values:", values);
                 return values;
-            };
-            
-            // Sync widget values with node inputs
-            nodeType.prototype.syncWidgetValuesWithInputs = function() {
-                console.log("Syncing widget values with node inputs");
-                
-                this.dynamicWidgets.forEach((widget, paramName) => {
-                    if (this.inputs) {
-                        const inputIndex = this.inputs.findIndex(input => input.name === paramName);
-                        if (inputIndex >= 0) {
-                            // Update the input value with the widget value
-                            if (this.inputs[inputIndex].link !== null) {
-                                // Input is connected, don't override
-                                console.log(`Input ${paramName} is connected, keeping external value`);
-                            } else {
-                                // Input is not connected, set from widget
-                                const value = widget.value !== undefined ? widget.value : "Random";
-                                console.log(`Setting input ${paramName} to widget value: ${value}`);
-                                // Note: In ComfyUI, we can't directly set input values, but the widget values
-                                // should be accessible during execution through the kwargs
-                            }
-                        }
-                    }
-                });
             };
             
             // Override serialize to save dynamic widget values

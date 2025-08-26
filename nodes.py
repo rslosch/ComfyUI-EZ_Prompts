@@ -71,6 +71,9 @@ class EZPromptsNode:
         templates = {}
         
         print(f"Loading templates from: {templates_dir}")
+        print(f"Directory exists: {os.path.exists(templates_dir)}")
+        if os.path.exists(templates_dir):
+            print(f"Directory contents: {os.listdir(templates_dir)}")
         
         # Load all .json template files
         for filename in os.listdir(templates_dir):
@@ -103,15 +106,16 @@ class EZPromptsNode:
                             
                             param = {
                                 "name": var_name,
-                                "type": "select",
+                                "type": "select",  # Ensure type is select for dropdown
                                 "label": var_name.replace('_', ' ').title(),
-                                "defaultValue": "Random", # Changed default value
+                                "defaultValue": "Random",
                                 "wildcard_file": wildcard_name,  # Store reference to wildcard file
                                 "options": {
                                     "choices": []  # Will be populated with wildcard values
                                 }
                             }
                             converted_template["parameters"].append(param)
+                            print(f"    Created parameter: {param}")
                         
                         templates[template_name] = converted_template
                         print(f"  Converted template: {converted_template}")
@@ -127,6 +131,11 @@ class EZPromptsNode:
         wildcards_dir = os.path.join(os.path.dirname(__file__), "wildcards")
         os.makedirs(wildcards_dir, exist_ok=True)
         
+        print(f"Wildcards directory: {wildcards_dir}")
+        print(f"Directory exists: {os.path.exists(wildcards_dir)}")
+        if os.path.exists(wildcards_dir):
+            print(f"Directory contents: {os.listdir(wildcards_dir)}")
+        
         wildcards = {}
         
         # Get all wildcard files referenced in templates
@@ -141,6 +150,7 @@ class EZPromptsNode:
         # Load only referenced wildcard files
         for wildcard_name in referenced_wildcards:
             wildcard_path = os.path.join(wildcards_dir, f"{wildcard_name}.txt")
+            print(f"Looking for wildcard file: {wildcard_path}")
             
             if os.path.exists(wildcard_path):
                 try:
@@ -158,11 +168,14 @@ class EZPromptsNode:
                 print(f"Warning: Wildcard file {wildcard_name}.txt not found")
         
         print(f"Total wildcards loaded: {len(wildcards)}")
+        print(f"Wildcard contents: {wildcards}")
         return wildcards
     
     def populate_template_choices(self):
         """Populate template parameter choices with wildcard values"""
         print("Populating template choices...")
+        print(f"Available wildcards: {list(self.wildcards.keys())}")
+        
         for template_name, template_data in self.templates.items():
             print(f"Processing template: {template_name}")
             for param in template_data.get("parameters", []):
@@ -178,6 +191,7 @@ class EZPromptsNode:
                     param["defaultValue"] = "Random"
                     
                     print(f"  Final choices: {choices}")
+                    print(f"  Parameter options after population: {param['options']}")
         
         print("Template choices populated.")
     
