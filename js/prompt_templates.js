@@ -178,6 +178,9 @@ app.registerExtension({
                 
                 const { name, text, parameters = [] } = templateData;
                 
+                // Store current wildcard parameter values before clearing widgets
+                const currentValues = { ...this.wildcardParamValues };
+                
                 // Clear existing dynamic widgets
                 this.clearDynamicWidgets();
                 
@@ -186,8 +189,23 @@ app.registerExtension({
                     this.createWildcardParameterWidget(param);
                 });
                 
-                // Reset wildcard parameter values
-                this.wildcardParamValues = {};
+                // Restore any existing values that are still valid for this template
+                parameters.forEach(param => {
+                    if (currentValues[param.name] && currentValues[param.name] !== "Random") {
+                        // Check if the value is still valid for this parameter
+                        const widget = this.dynamicWidgets.get(param.name);
+                        if (widget && widget.options && widget.options.values) {
+                            if (widget.options.values.includes(currentValues[param.name])) {
+                                // Restore the value
+                                widget.value = currentValues[param.name];
+                                this.wildcardParamValues[param.name] = currentValues[param.name];
+                                console.log(`Restored value for ${param.name}: ${currentValues[param.name]}`);
+                            }
+                        }
+                    }
+                });
+                
+                // Update hidden field with current values
                 this.updateHiddenWildcardParams();
                 
                 // Refresh the populated field based on current mode
@@ -203,11 +221,14 @@ app.registerExtension({
             nodeType.prototype.createWildcardParameterWidget = function(paramData) {
                 const { name, wildcard_file, options } = paramData;
                 
-                // Get wildcard choices
-                let choices = ["Random"];
+                // Get wildcard choices - avoid duplicate "Random"
+                let choices = [];
                 if (options && options.choices) {
-                    choices = choices.concat(options.choices);
+                    // Filter out any existing "Random" to avoid duplicates
+                    choices = options.choices.filter(choice => choice !== "Random");
                 }
+                // Add "Random" as the first option
+                choices = ["Random", ...choices];
                 
                 console.log(`Creating widget for ${name} with choices:`, choices);
                 
@@ -223,7 +244,7 @@ app.registerExtension({
                 widget.parameterData = paramData;
                 this.dynamicWidgets.set(name, widget);
                 
-                // Set initial value to "Random"
+                // Set initial value to "Random" and update our tracking
                 this.wildcardParamValues[name] = "Random";
                 
                 console.log(`Created wildcard parameter widget: ${name}`);
@@ -368,15 +389,38 @@ app.registerExtension({
                     // Trigger template loading after a short delay to ensure widgets are ready
                     setTimeout(() => {
                         this.onTemplateChanged(data.current_template);
+                        
+                        // After template is loaded, restore wildcard parameter values
+                        if (data.wildcard_param_values) {
+                            setTimeout(() => {
+                                this.restoreWildcardParameterValues(data.wildcard_param_values);
+                            }, 200); // Wait for widgets to be fully created
+                        }
                     }, 100);
                 }
                 
-                if (data.wildcard_param_values) {
-                    this.wildcardParamValues = data.wildcard_param_values;
-                    this.updateHiddenWildcardParams();
-                }
-                
                 return result;
+            };
+            
+            // Restore wildcard parameter values to widgets
+            nodeType.prototype.restoreWildcardParameterValues = function(values) {
+                console.log("Restoring wildcard parameter values:", values);
+                
+                Object.entries(values).forEach(([paramName, value]) => {
+                    const widget = this.dynamicWidgets.get(paramName);
+                    if (widget && value !== "Random") {
+                        // Check if the value is valid for this widget
+                        if (widget.options && widget.options.values && widget.options.values.includes(value)) {
+                            widget.value = value;
+                            this.wildcardParamValues[paramName] = value;
+                            console.log(`Restored ${paramName} = ${value}`);
+                        }
+                    }
+                });
+                
+                // Update hidden field and refresh display
+                this.updateHiddenWildcardParams();
+                this.refreshPopulatedField();
             };
 
             // Load available templates from server

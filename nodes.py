@@ -242,6 +242,7 @@ class EZPromptsNode:
         try:
             wildcard_values = json.loads(wildcard_params) if wildcard_params else {}
             print(f"Parsed wildcard parameters: {wildcard_values}")
+            print(f"Wildcard params JSON string: '{wildcard_params}'")
         except json.JSONDecodeError as e:
             print(f"Warning: Failed to parse wildcard_params JSON: {e}")
             wildcard_values = {}
@@ -327,7 +328,7 @@ async def get_template_wildcards(request):
                 wildcard_name = param["wildcard_file"]
                 wildcard_values = node.wildcards.get(wildcard_name, [])
                 wildcard_data[param["name"]] = {
-                    "choices": ["Random"] + wildcard_values,
+                    "choices": wildcard_values,  # Don't add "Random" here, JavaScript will add it
                     "wildcard_file": wildcard_name
                 }
         
