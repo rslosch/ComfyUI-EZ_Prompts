@@ -308,13 +308,8 @@ app.registerExtension({
                 // Initialize variable overrides storage
                 this._variable_overrides = {};
                 
-                // Create custom widget for the UI
-                this.ezWidget = this.addWidget("text", "EZ_Prompts_UI", "", () => {}, {
-                    serialize: false // Don't save this widget
-                });
-                
-                // Build the custom UI after a short delay to ensure the widget is created
-                setTimeout(() => this.buildCustomUI(), 100);
+                // Build the custom UI after a short delay to ensure the node is fully rendered
+                setTimeout(() => this.buildCustomUI(), 200);
                 
                 return result;
             };
@@ -378,18 +373,16 @@ app.registerExtension({
                 container.appendChild(liveSection);
                 this.livePreview = livePreview;
                 
-                // Find the widget element and attach our UI
-                if (this.ezWidget && this.ezWidget.element) {
-                    // Hide the original widget input
-                    this.ezWidget.element.style.display = "none";
-                    
-                    // Find the widget container and insert our UI
-                    const widgetContainer = this.ezWidget.element.closest('.comfy-widget');
-                    if (widgetContainer) {
-                        widgetContainer.appendChild(container);
+                // Find the node's DOM element and insert our UI
+                if (this.element) {
+                    // Find the widgets container within the node
+                    const widgetsContainer = this.element.querySelector('.comfy-widgets');
+                    if (widgetsContainer) {
+                        // Insert our custom UI after the existing widgets
+                        widgetsContainer.appendChild(container);
                     } else {
-                        // Fallback: insert before the widget element
-                        this.ezWidget.element.parentNode.insertBefore(container, this.ezWidget.element);
+                        // Fallback: append to the node element itself
+                        this.element.appendChild(container);
                     }
                 }
                 

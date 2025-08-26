@@ -1,0 +1,347 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# ComfyUI JavaScript Extension Development Patterns
+
+ComfyUI's JavaScript extension system provides a robust framework for creating custom node interfaces and UI components, but proper implementation requires following specific patterns and lifecycle management practices. Understanding these patterns is crucial for debugging why extensions like EZ Prompts may fail to load or display UI elements correctly.
+
+## Essential extension registration structure
+
+**Every ComfyUI JavaScript extension must follow a strict registration pattern** using `app.registerExtension()`. The most common cause of extensions failing to load is improper setup of the basic directory structure and Python-side configuration.
+
+### File structure requirements
+
+ComfyUI extensions require this exact directory structure:
+```
+custom_nodes/
+└── your_extension/
+    ├── __init__.py
+    ├── js/              # WEB_DIRECTORY (can be named 'web' or 'javascript')
+    │   └── extension.js # JavaScript files
+    └── requirements.txt # Optional dependencies
+```
+
+The critical requirement is **exporting WEB_DIRECTORY in your Python `__init__.py`**:
+```python
+WEB_DIRECTORY = "./js"  # Points to JavaScript directory
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
+```
+
+ComfyUI automatically loads **all `.js` files** from the WEB_DIRECTORY. CSS files must be loaded programmatically from `extensions/custom_node_subfolder/filename.css`.
+
+### Basic extension structure
+
+```javascript
+import { app } from "../../scripts/app.js";
+
+app.registerExtension({
+    name: "your.unique.extension.name", // Must be unique across all extensions
+    
+    async init() {
+        // Called when webpage loads, before nodes are registered
+    },
+    
+    async beforeRegisterNodeDef(nodeType, nodeData, app) {
+        // Called once for each node type during registration
+        // This is where most custom UI logic belongs
+    },
+    
+    async nodeCreated(node) {
+        // Called when individual node instances are created
+    },
+    
+    async setup() {
+        // Called at end of startup process
+    }
+});
+```
+
+## Proper beforeRegisterNodeDef hook implementation
+
+**The beforeRegisterNodeDef hook is the primary mechanism for adding custom UI elements to nodes.** Most UI-related problems stem from incorrect usage of this hook.
+
+### Correct node filtering pattern
+
+```javascript
+async beforeRegisterNodeDef(nodeType, nodeData, app) {
+    // Filter to only modify your specific nodes
+    if (nodeData.python_module !== "custom_nodes.your_module") {
+        return; // Skip nodes not from your extension
+    }
+    
+    // Alternative filtering by ComfyClass name
+    if (nodeType.comfyClass !== "YourNodeClassName") {
+        return;
+    }
+    
+    // Modify node behavior here - changes apply to ALL instances
+}
+```
+
+**Critical insight**: `beforeRegisterNodeDef` modifies the `nodeType.prototype`, meaning changes apply to all instances of that node type. Use `nodeCreated` for instance-specific modifications.
+
+### Method hijacking pattern
+
+The standard pattern for extending existing node functionality:
+```javascript
+async beforeRegisterNodeDef(nodeType, nodeData, app) {
+    if (nodeType.comfyClass !== "YourNode") return;
+    
+    // Store original method
+    const originalMethod = nodeType.prototype.someMethod;
+    
+    // Replace with extended version
+    nodeType.prototype.someMethod = function(...args) {
+        // Call original method safely (handles undefined methods)
+        const result = originalMethod?.apply(this, args);
+        
+        // Add your custom logic
+        this.addCustomUI();
+        
+        return result;
+    };
+}
+```
+
+## Custom widget creation and node UI integration
+
+**Creating custom widgets within nodes requires understanding ComfyUI's widget system architecture.** There are two approaches: modifying existing widgets or creating completely new widget types.
+
+### Modifying existing widgets
+
+```javascript
+async beforeRegisterNodeDef(nodeType, nodeData, app) {
+    if (nodeType.comfyClass !== "YourNode") return;
+    
+    // Modify widget behavior after node creation
+    const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+    nodeType.prototype.onNodeCreated = function() {
+        const result = originalOnNodeCreated?.apply(this, arguments);
+        
+        // Find and modify specific widgets
+        const textWidget = this.widgets.find(w => w.name === "text");
+        if (textWidget) {
+            const originalCallback = textWidget.callback;
+            textWidget.callback = (value) => {
+                originalCallback?.call(this, value);
+                // Custom widget logic
+                this.updateCustomInterface(value);
+            };
+        }
+        
+        return result;
+    };
+}
+```
+
+### Creating custom widget types
+
+For completely new widget types, use the `getCustomWidgets` pattern:
+```javascript
+app.registerExtension({
+    name: "custom.widget.example",
+    getCustomWidgets() {
+        return {
+            CUSTOM_WIDGET(node, inputName, inputData) {
+                const widget = node.addWidget("button", inputName, null, () => {
+                    // Custom widget behavior
+                    this.handleCustomAction();
+                });
+                
+                // Add custom DOM elements
+                const container = document.createElement("div");
+                container.className = "custom-widget-container";
+                widget.element = container;
+                
+                return { widget };
+            }
+        };
+    }
+});
+```
+
+## Node lifecycle management best practices
+
+**Understanding the extension lifecycle is crucial for proper initialization and cleanup.** The hook execution sequence follows this order:
+
+```
+1. init() - Extension initialization
+2. beforeRegisterNodeDef() - For each node type
+3. nodeCreated() - For each node instance  
+4. setup() - Final setup phase
+```
+
+### Proper nodeCreated usage
+
+```javascript
+async nodeCreated(node) {
+    // Only modify specific node types
+    if (node.comfyClass !== "YourNodeType") return;
+    
+    // Note: node.id may be -1 initially
+    // Use onAdded callback for ID-dependent logic
+    node.onAdded = function() {
+        if (this.id !== -1) {
+            // Now safe to use node.id
+            this.setupCustomInterface();
+        }
+    };
+    
+    // Instance-specific modifications
+    node.onDrawForeground = function(ctx) {
+        // Custom drawing logic
+        this.drawCustomElements(ctx);
+    };
+}
+```
+
+## Modern UI component integration patterns
+
+**ComfyUI provides modern extension APIs that should be preferred over direct DOM manipulation.** These APIs handle lifecycle management and provide consistent behavior across different environments.
+
+### Settings integration
+
+```javascript
+app.registerExtension({
+    name: "MyExtension",
+    settings: [
+        {
+            id: "myext.enabled",
+            name: "Enable Custom UI",
+            type: "boolean",
+            defaultValue: true,
+            onChange: (newVal, oldVal) => {
+                // React to setting changes
+                this.updateUIVisibility(newVal);
+            }
+        }
+    ]
+});
+
+// Access settings values
+const enabled = app.extensionManager.setting.get('myext.enabled');
+```
+
+### Modern dialog and notification APIs
+
+```javascript
+// Modern dialog APIs (replaces window.prompt/confirm/alert)
+app.extensionManager.dialog.prompt({
+    title: 'Custom Input',
+    message: 'Enter configuration value:',
+    defaultValue: 'default'
+}).then(result => {
+    if (result !== null) {
+        this.applyConfiguration(result);
+    }
+});
+
+// Toast notifications for user feedback
+app.extensionManager.toast.add({
+    severity: 'success',
+    summary: 'Extension Loaded',
+    detail: 'Custom UI elements initialized successfully',
+    life: 3000
+});
+```
+
+### Sidebar and panel integration
+
+```javascript
+// Modern sidebar tab registration
+app.extensionManager.registerSidebarTab({
+    id: "customSidebar",
+    icon: "pi pi-compass",
+    title: "Custom Panel",
+    tooltip: "Custom Extension Panel",
+    type: "custom",
+    render: (el) => {
+        el.innerHTML = '<div>Custom interface content</div>';
+        
+        // Return cleanup function for proper lifecycle management
+        return () => {
+            // Cleanup event listeners and resources
+        };
+    }
+});
+```
+
+## Common implementation mistakes and solutions
+
+**Most extension loading failures result from these specific mistakes:**
+
+### Extension not loading at all
+
+**Problem**: JavaScript file isn't being loaded by ComfyUI.
+**Solutions**:
+- Verify `WEB_DIRECTORY` export in Python `__init__.py`
+- Ensure JavaScript files are in correct directory structure
+- Check browser console for JavaScript syntax errors
+- Confirm unique extension names across all installed extensions
+
+### Custom UI elements not appearing
+
+**Problem**: Extension loads but UI elements don't display.
+**Solutions**:
+- Verify node filtering in `beforeRegisterNodeDef` matches your Python class names
+- Check that modifications are applied to `nodeType.prototype`, not individual instances
+- Ensure widget creation happens in appropriate lifecycle hook
+- Verify DOM elements are properly attached to node interface
+
+### Extension breaking after ComfyUI updates
+
+**Problem**: Extension worked previously but fails after updates.
+**Solutions**:
+- Replace deprecated window.prompt/confirm/alert with modern dialog APIs
+- Update to use `app.extensionManager` APIs instead of direct UI manipulation
+- Test against different ComfyUI frontend versions
+- Use defensive coding with optional chaining (`?.`) for method calls
+
+### Widget state not persisting
+
+**Problem**: Custom widget values reset when workflow loads.
+**Solutions**:
+- Ensure widgets properly integrate with ComfyUI's serialization system
+- Store widget values in `node.widgets_values` array for persistence
+- Use `node.serialize()` and `node.configure()` for custom state management
+
+## Advanced debugging techniques
+
+### Extension loading diagnostics
+
+```javascript
+app.registerExtension({
+    name: "debug.extension.loader",
+    async init() {
+        console.log("Extension init called");
+    },
+    async beforeRegisterNodeDef(nodeType, nodeData, app) {
+        console.log(`Registering node: ${nodeType.comfyClass}`, nodeData);
+    },
+    async nodeCreated(node) {
+        console.log(`Node created: ${node.comfyClass}`, node);
+    }
+});
+```
+
+### Runtime inspection patterns
+
+```javascript
+// Inspect available nodes and their structure
+Object.keys(LiteGraph.registered_node_types).forEach(nodeClass => {
+    console.log(`Available node: ${nodeClass}`);
+});
+
+// Monitor API events for workflow debugging
+import { api } from "../../scripts/api.js";
+api.addEventListener("execution_start", () => console.log("Workflow started"));
+api.addEventListener("execution_error", (event) => console.log("Error:", event.detail));
+```
+
+## Conclusion
+
+Successful ComfyUI JavaScript extension development requires strict adherence to the registration patterns, proper use of lifecycle hooks, and understanding the distinction between node-type modifications (via `beforeRegisterNodeDef`) and instance-specific changes (via `nodeCreated`). Most extension failures stem from improper directory structure, incorrect node filtering, or using deprecated APIs.
+
+For the EZ Prompts extension specifically, the most likely issues are incorrect `WEB_DIRECTORY` configuration, improper node type filtering in `beforeRegisterNodeDef`, or attempting to modify nodes before they're properly registered. Following the patterns outlined above, particularly the method hijacking pattern and modern UI integration APIs, should resolve most loading and display issues.
