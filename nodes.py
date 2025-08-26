@@ -53,7 +53,7 @@ class EZPromptsNode:
             },
             "optional": {
                 "populated": ("STRING", {"multiline": True, "default": ""}),
-                **optional_inputs
+                **optional_inputs  # Include all wildcard parameters
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -224,12 +224,13 @@ class EZPromptsNode:
         if not template_data:
             return ("Template not found",)
         
-        # Start with the base template text
+        # Always process the template during execution to resolve Random values
+        # The populated field is for display only
         prompt_text = template_data["text"]
         
         print(f"Generating prompt for template: {template}")
         print(f"Template text: {prompt_text}")
-        print(f"Received kwargs: {kwargs}")
+        print(f"Populated field (display only): {populated}")
         
         # Replace placeholders with parameter values
         for param in template_data["parameters"]:

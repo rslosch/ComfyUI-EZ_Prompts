@@ -11,6 +11,7 @@ app.registerExtension({
             const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
             const originalOnConfigure = nodeType.prototype.onConfigure;
             const originalSerialize = nodeType.prototype.serialize;
+            const originalOnExecuted = nodeType.prototype.onExecuted;
             
             // Override onNodeCreated
             nodeType.prototype.onNodeCreated = function() {
@@ -201,6 +202,15 @@ app.registerExtension({
                             widget.options.values = choices;
                             console.log(`Widget ${name} configured with values:`, widget.options.values);
                         }
+                        
+                        // Connect widget to the node's input system
+                        if (this.inputs) {
+                            const inputIndex = this.inputs.findIndex(input => input.name === name);
+                            if (inputIndex >= 0) {
+                                widget.inputIndex = inputIndex;
+                                console.log(`Connected widget ${name} to input index ${inputIndex}`);
+                            }
+                        }
                         break;
                         
                     default:
@@ -320,6 +330,40 @@ app.registerExtension({
             nodeType.prototype.showError = function(message) {
                 console.error(message);
                 // You could add toast notification here if available
+            };
+            
+            // Synchronize widget values with node inputs before execution
+            nodeType.prototype.syncWidgetValuesToInputs = function() {
+                console.log("Synchronizing widget values to inputs...");
+                
+                this.dynamicWidgets.forEach((widget, name) => {
+                    if (widget.inputIndex !== undefined && this.inputs && this.inputs[widget.inputIndex]) {
+                        // Update the input value with the widget value
+                        this.inputs[widget.inputIndex].value = widget.value;
+                        console.log(`Synced ${name} = ${widget.value} to input index ${widget.inputIndex}`);
+                    }
+                });
+            };
+            
+            // Override the node's execution method to ensure widget values are synced
+            nodeType.prototype.onExecuted = function(message) {
+                // Sync widget values before execution
+                this.syncWidgetValuesToInputs();
+                
+                // Call original method if it exists
+                if (originalOnExecuted) {
+                    return originalOnExecuted.apply(this, arguments);
+                }
+            };
+            
+            // Get current widget values for execution
+            nodeType.prototype.getWidgetValues = function() {
+                const values = {};
+                this.dynamicWidgets.forEach((widget, name) => {
+                    values[name] = widget.value;
+                });
+                console.log("Current widget values:", values);
+                return values;
             };
             
             // Override serialize to save dynamic widget values
