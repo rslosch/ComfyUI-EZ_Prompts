@@ -211,6 +211,19 @@ class EZPromptsNode:
     def generate_prompt(self, template, mode=True, seed=0, wildcard_index=0, populated="", unique_id=None, extra_pnginfo=None, wildcard_params="{}"):
         """Generate the final prompt by substituting template parameters"""
         
+        print("=" * 60)
+        print("EZPromptsNode.generate_prompt() called")
+        print(f"Template: {template}")
+        print(f"Mode: {mode}")
+        print(f"Seed: {seed}")
+        print(f"Wildcard Index: {wildcard_index}")
+        print(f"Populated: {populated}")
+        print(f"Unique ID: {unique_id}")
+        print(f"Extra PNG Info: {extra_pnginfo}")
+        print(f"Wildcard Params (raw): '{wildcard_params}'")
+        print(f"Wildcard Params type: {type(wildcard_params)}")
+        print("=" * 60)
+        
         if template == "none":
             return ("",)
         
@@ -243,6 +256,8 @@ class EZPromptsNode:
             wildcard_values = json.loads(wildcard_params) if wildcard_params else {}
             print(f"Parsed wildcard parameters: {wildcard_values}")
             print(f"Wildcard params JSON string: '{wildcard_params}'")
+            print(f"Wildcard values type: {type(wildcard_values)}")
+            print(f"Wildcard values keys: {list(wildcard_values.keys()) if isinstance(wildcard_values, dict) else 'Not a dict'}")
         except json.JSONDecodeError as e:
             print(f"Warning: Failed to parse wildcard_params JSON: {e}")
             wildcard_values = {}
@@ -255,6 +270,7 @@ class EZPromptsNode:
         prompt_text = template_data["text"]
         
         print(f"Template text: {prompt_text}")
+        print(f"Template parameters: {[param['name'] for param in template_data.get('parameters', [])]}")
         
         # Set seed for deterministic randomization
         random.seed(seed)
@@ -266,6 +282,8 @@ class EZPromptsNode:
             param_value = wildcard_values.get(param_name, "Random")
             
             print(f"Processing parameter: {param_name} = {param_value}")
+            print(f"  Available in wildcard_values: {param_name in wildcard_values}")
+            print(f"  Wildcard_values content: {wildcard_values}")
             
             # Handle "Random" values by selecting from available choices
             if param_value == "Random":
@@ -312,6 +330,7 @@ class EZPromptsNode:
                 print(f"  Replaced {placeholder} with '{param_value}'")
         
         print(f"Final prompt: {prompt_text}")
+        print("=" * 60)
         return (prompt_text,)
 
 @PromptServer.instance.routes.get("/api/custom/templates/{template_name}/wildcards")

@@ -62,6 +62,16 @@ app.registerExtension({
                 // Find the hidden wildcard params widget
                 this.hiddenWildcardWidget = this.widgets.find(w => w.name === "wildcard_params");
                 
+                // Ensure hidden widget is properly configured
+                if (this.hiddenWildcardWidget) {
+                    console.log("Found hidden wildcard params widget:", this.hiddenWildcardWidget);
+                    // Ensure it's marked as a hidden input that should be included in execution
+                    this.hiddenWildcardWidget.hidden = true;
+                    this.hiddenWildcardWidget.serialize = true;
+                } else {
+                    console.warn("Hidden wildcard params widget not found!");
+                }
+                
                 // Setup parameter change listeners for existing widgets
                 this.setupParameterListeners();
             };
@@ -102,6 +112,12 @@ app.registerExtension({
                 if (this.hiddenWildcardWidget) {
                     this.hiddenWildcardWidget.value = JSON.stringify(this.wildcardParamValues);
                     console.log("Updated hidden wildcard params:", this.hiddenWildcardWidget.value);
+                    
+                    // Force the widget to be marked as modified so ComfyUI includes it in execution
+                    this.hiddenWildcardWidget.dirty = true;
+                    
+                    // Also ensure the node itself is marked as dirty
+                    this.setDirtyCanvas(true, true);
                 }
             };
             
@@ -372,11 +388,53 @@ app.registerExtension({
                 this.refreshPopulatedField();
             };
             
-            // Serialize node state
+            // Debug method to check current state
+            nodeType.prototype.debugWildcardState = function() {
+                console.log("=== WILDCARD STATE DEBUG ===");
+                console.log("Dynamic widgets:", Array.from(this.dynamicWidgets.keys()));
+                console.log("Wildcard param values:", this.wildcardParamValues);
+                console.log("Hidden widget exists:", !!this.hiddenWildcardWidget);
+                if (this.hiddenWildcardWidget) {
+                    console.log("Hidden widget value:", this.hiddenWildcardWidget.value);
+                    console.log("Hidden widget name:", this.hiddenWildcardWidget.name);
+                    console.log("Hidden widget type:", this.hiddenWidget.type);
+                }
+                console.log("All widgets:", this.widgets.map(w => ({ name: w.name, value: w.value, type: w.type })));
+                console.log("=============================");
+            };
+            
+            // Hook into execution to ensure wildcard params are synced
+            nodeType.prototype.onBeforeExecuted = function() {
+                console.log("Node about to execute - syncing wildcard params");
+                
+                // Debug current state
+                this.debugWildcardState();
+                
+                // Force update of hidden wildcard params field
+                this.updateHiddenWildcardParams();
+                
+                // Log the current state
+                console.log("Current wildcard param values:", this.wildcardParamValues);
+                console.log("Hidden widget value:", this.hiddenWildcardWidget?.value);
+                
+                // Call original if it exists
+                if (originalOnBeforeExecuted) {
+                    originalOnBeforeExecuted.apply(this, arguments);
+                }
+            };
+            
+            // Override the serialize method to ensure wildcard params are included
             nodeType.prototype.serialize = function() {
                 const data = originalSerialize?.apply(this, arguments) || {};
                 data.current_template = this.widgets.find(w => w.name === "template")?.value;
                 data.wildcard_param_values = this.wildcardParamValues;
+                
+                // Ensure the hidden wildcard params widget is properly serialized
+                if (this.hiddenWildcardWidget) {
+                    data.wildcard_params = this.hiddenWildcardWidget.value;
+                    console.log("Serializing wildcard params:", data.wildcard_params);
+                }
+                
                 return data;
             };
             
