@@ -28,12 +28,32 @@ class EZPromptsNode:
                     template_name = filename[:-5]  # Remove .json extension
                     template_choices.append(template_name)
         
+        # Load all possible wildcard parameters from templates
+        optional_inputs = {}
+        if os.path.exists(templates_dir):
+            for filename in os.listdir(templates_dir):
+                if filename.endswith('.json'):
+                    template_path = os.path.join(templates_dir, filename)
+                    try:
+                        with open(template_path, 'r', encoding='utf-8') as f:
+                            template_data = json.load(f)
+                        
+                        if "variables" in template_data:
+                            for var_name in template_data["variables"].keys():
+                                optional_inputs[var_name] = ("STRING", {"default": "Random"})
+                    except Exception as e:
+                        print(f"Error loading template {filename} for INPUT_TYPES: {e}")
+        
+        print(f"INPUT_TYPES - Template choices: {template_choices}")
+        print(f"INPUT_TYPES - Optional inputs: {list(optional_inputs.keys())}")
+        
         return {
             "required": {
                 "template": (template_choices, {"default": "none"}),
             },
             "optional": {
                 "populated": ("STRING", {"multiline": True, "default": ""}),
+                **optional_inputs
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -199,11 +219,6 @@ class EZPromptsNode:
         
         if template == "none":
             return ("",)
-        
-        # If populated field has content, use it directly
-        if populated and populated.strip():
-            print(f"Using populated field content: {populated}")
-            return (populated,)
         
         template_data = self.templates.get(template)
         if not template_data:
