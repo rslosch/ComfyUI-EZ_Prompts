@@ -35,48 +35,8 @@ class EZPromptsNode:
         else:
             default_template = template_choices[0]  # Use first template as default
         
-        # Load all possible wildcard parameters from templates with their choices
-        optional_inputs = {}
-        if os.path.exists(templates_dir):
-            for filename in os.listdir(templates_dir):
-                if filename.endswith('.json'):
-                    template_path = os.path.join(templates_dir, filename)
-                    try:
-                        with open(template_path, 'r', encoding='utf-8') as f:
-                            template_data = json.load(f)
-                        
-                        if "variables" in template_data:
-                            for var_name, wildcard_file in template_data["variables"].items():
-                                # Load wildcard choices from the corresponding .txt file
-                                wildcard_name = wildcard_file.replace('.txt', '')
-                                wildcard_path = os.path.join(os.path.dirname(__file__), "wildcards", f"{wildcard_name}.txt")
-                                
-                                choices = ["Random"]  # Always start with Random
-                                if os.path.exists(wildcard_path):
-                                    try:
-                                        with open(wildcard_path, 'r', encoding='utf-8') as wf:
-                                            lines = wf.readlines()
-                                            # Clean up lines and remove empty ones
-                                            wildcard_values = [line.strip() for line in lines if line.strip()]
-                                            choices.extend(wildcard_values)
-                                            print(f"Loaded wildcard {wildcard_name} with {len(wildcard_values)} values: {wildcard_values[:3]}...")
-                                    except Exception as e:
-                                        print(f"Error loading wildcard {wildcard_name} for INPUT_TYPES: {e}")
-                                else:
-                                    print(f"Warning: Wildcard file {wildcard_name}.txt not found for INPUT_TYPES")
-                                
-                                # Define as COMBO dropdown with loaded choices
-                                optional_inputs[var_name] = ("COMBO", {
-                                    "default": "Random",
-                                    "choices": choices
-                                })
-                                
-                    except Exception as e:
-                        print(f"Error loading template {filename} for INPUT_TYPES: {e}")
-        
         print(f"INPUT_TYPES - Template choices: {template_choices}")
         print(f"INPUT_TYPES - Default template: {default_template}")
-        print(f"INPUT_TYPES - Optional inputs: {list(optional_inputs.keys())}")
         
         return {
             "required": {
@@ -87,11 +47,11 @@ class EZPromptsNode:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 "wildcard_index": ("INT", {"default": 0, "min": 0, "max": 99999}),
                 "populated": ("STRING", {"multiline": True, "default": ""}),
-                **optional_inputs  # Include all wildcard parameters as COMBO dropdowns
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
-                "extra_pnginfo": "EXTRA_PNGINFO"
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "wildcard_params": ("STRING", {"default": "{}"})  # JSON string for wildcard parameter values
             }
         }
     
@@ -248,7 +208,7 @@ class EZPromptsNode:
         
         return info
 
-    def generate_prompt(self, template, mode=True, seed=0, wildcard_index=0, populated="", unique_id=None, extra_pnginfo=None, **kwargs):
+    def generate_prompt(self, template, mode=True, seed=0, wildcard_index=0, populated="", unique_id=None, extra_pnginfo=None, wildcard_params="{}"):
         """Generate the final prompt by substituting template parameters"""
         
         if template == "none":
@@ -277,7 +237,14 @@ class EZPromptsNode:
         
         # Populate mode: process template with seed-based randomization
         print(f"Populate mode: processing template '{template}' with seed {seed}, index {wildcard_index}")
-        print(f"Received wildcard parameters: {kwargs}")
+        
+        # Parse wildcard parameters from JSON
+        try:
+            wildcard_values = json.loads(wildcard_params) if wildcard_params else {}
+            print(f"Parsed wildcard parameters: {wildcard_values}")
+        except json.JSONDecodeError as e:
+            print(f"Warning: Failed to parse wildcard_params JSON: {e}")
+            wildcard_values = {}
         
         template_data = self.templates.get(template)
         if not template_data:
@@ -291,28 +258,40 @@ class EZPromptsNode:
         # Set seed for deterministic randomization
         random.seed(seed)
         
-        # Replace placeholders with parameter values from kwargs (native INPUT_TYPES)
+        # Replace placeholders with parameter values from wildcard_values
         for i, param in enumerate(template_data["parameters"]):
             param_name = param["name"]
-            # Get value from kwargs (which comes from native INPUT_TYPES COMBO dropdowns)
-            param_value = kwargs.get(param_name, "Random")
+            # Get value from wildcard_values (which comes from JavaScript widgets)
+            param_value = wildcard_values.get(param_name, "Random")
             
             print(f"Processing parameter: {param_name} = {param_value}")
             
             # Handle "Random" values by selecting from available choices
             if param_value == "Random":
-                # Get the choices from the template data
-                choices = param.get("options", {}).get("choices", [])
-                if len(choices) > 1:  # More than just "Random"
-                    # Select random choice excluding "Random"
-                    available_choices = [choice for choice in choices if choice != "Random"]
-                    if available_choices:
-                        # Use derived seed for each wildcard to ensure consistency
-                        derived_seed = seed + i
-                        random.seed(derived_seed)
-                        param_value = random.choice(available_choices)
-                        print(f"  Random selection for {param_name}: {param_value} (seed: {derived_seed})")
+                # Get the choices from the wildcard file
+                wildcard_name = param.get("wildcard_file", "")
+                if wildcard_name:
+                    wildcard_path = os.path.join(os.path.dirname(__file__), "wildcards", f"{wildcard_name}.txt")
+                    if os.path.exists(wildcard_path):
+                        try:
+                            with open(wildcard_path, 'r', encoding='utf-8') as wf:
+                                lines = wf.readlines()
+                                # Clean up lines and remove empty ones
+                                available_choices = [line.strip() for line in lines if line.strip()]
+                            
+                            if available_choices:
+                                # Use derived seed for each wildcard to ensure consistency
+                                derived_seed = seed + i
+                                random.seed(derived_seed)
+                                param_value = random.choice(available_choices)
+                                print(f"  Random selection for {param_name}: {param_value} (seed: {derived_seed})")
+                            else:
+                                param_value = ""
+                        except Exception as e:
+                            print(f"Error reading wildcard file {wildcard_name}: {e}")
+                            param_value = ""
                     else:
+                        print(f"Wildcard file {wildcard_name}.txt not found")
                         param_value = ""
                 else:
                     param_value = ""
