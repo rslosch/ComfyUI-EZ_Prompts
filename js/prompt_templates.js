@@ -11,7 +11,6 @@ app.registerExtension({
             const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
             const originalOnConfigure = nodeType.prototype.onConfigure;
             const originalSerialize = nodeType.prototype.serialize;
-            const originalOnExecuted = nodeType.prototype.onExecuted;
             
             // Override onNodeCreated
             nodeType.prototype.onNodeCreated = function() {
@@ -44,6 +43,17 @@ app.registerExtension({
                     };
                 }
                 
+                // Find the mode widget
+                this.modeWidget = this.widgets.find(w => w.name === "mode");
+                if (this.modeWidget) {
+                    // Override the mode widget callback
+                    const originalCallback = this.modeWidget.callback;
+                    this.modeWidget.callback = (value) => {
+                        originalCallback?.(value);
+                        this.onModeChanged(value);
+                    };
+                }
+                
                 // Find the populated widget
                 this.populatedWidget = this.widgets.find(w => w.name === "populated");
                 
@@ -64,10 +74,13 @@ app.registerExtension({
                     this.templateTextWidget.inputEl = null; // Will be created on first draw
                     this.templateTextWidget.computeSize = () => {
                         const lines = this.templateTextWidget.value.split('\n').length;
-                        const height = Math.max(60, Math.min(lines * 20 + 40, 200));
+                        const height = Math.max(120, Math.min(lines * 20 + 60, 300));
                         return [0, height];
                     };
                 }
+                
+                // Set initial node size to be wider
+                this.setSize([400, 200]);
             };
             
             // Handle template selection changes
@@ -157,8 +170,22 @@ app.registerExtension({
                 // Update template text with current parameter values
                 this.updateTemplatePreview();
                 
+                // Configure populated field based on current mode
+                if (this.modeWidget && this.populatedWidget) {
+                    const isPopulateMode = this.modeWidget.value;
+                    this.populatedWidget.disabled = isPopulateMode;
+                    
+                    if (isPopulateMode) {
+                        // Populate mode: show resolved template
+                        this.updateTemplatePreview();
+                    } else {
+                        // Fixed mode: allow manual editing
+                        this.populatedWidget.value = text;
+                    }
+                }
+                
                 // Resize node to fit new content
-                this.setSize(this.computeSize());
+                this.setSize([400, Math.max(200, 200 + parameters.length * 30)]);
                 
                 console.log(`Template "${name}" applied with ${parameters.length} parameters`);
             };
@@ -202,15 +229,6 @@ app.registerExtension({
                             widget.options.values = choices;
                             console.log(`Widget ${name} configured with values:`, widget.options.values);
                         }
-                        
-                        // Connect widget to the node's input system
-                        if (this.inputs) {
-                            const inputIndex = this.inputs.findIndex(input => input.name === name);
-                            if (inputIndex >= 0) {
-                                widget.inputIndex = inputIndex;
-                                console.log(`Connected widget ${name} to input index ${inputIndex}`);
-                            }
-                        }
                         break;
                         
                     default:
@@ -243,8 +261,10 @@ app.registerExtension({
             nodeType.prototype.onParameterChanged = function(parameterName, value) {
                 console.log("Parameter changed:", parameterName, "=", value);
                 
-                // Update template preview
-                this.updateTemplatePreview();
+                // Update template preview only in populate mode
+                if (this.modeWidget && this.modeWidget.value) {
+                    this.updateTemplatePreview();
+                }
                 
                 // Mark node as modified (but don't resize)
                 this.setDirtyCanvas(true, true);
@@ -280,13 +300,10 @@ app.registerExtension({
                     previewText = previewText.replace(new RegExp(placeholder, 'g'), value);
                 });
                 
-                // Update the populated widget if it exists
-                if (this.populatedWidget) {
+                // Update the populated widget if it exists and we're in populate mode
+                if (this.populatedWidget && this.modeWidget && this.modeWidget.value) {
                     this.populatedWidget.value = previewText;
                 }
-                
-                // Don't resize the node on every parameter change - only update the display
-                // this.setSize(this.computeSize()); // Removed this line
             };
             
             // Clear all dynamic widgets
@@ -332,40 +349,6 @@ app.registerExtension({
                 // You could add toast notification here if available
             };
             
-            // Synchronize widget values with node inputs before execution
-            nodeType.prototype.syncWidgetValuesToInputs = function() {
-                console.log("Synchronizing widget values to inputs...");
-                
-                this.dynamicWidgets.forEach((widget, name) => {
-                    if (widget.inputIndex !== undefined && this.inputs && this.inputs[widget.inputIndex]) {
-                        // Update the input value with the widget value
-                        this.inputs[widget.inputIndex].value = widget.value;
-                        console.log(`Synced ${name} = ${widget.value} to input index ${widget.inputIndex}`);
-                    }
-                });
-            };
-            
-            // Override the node's execution method to ensure widget values are synced
-            nodeType.prototype.onExecuted = function(message) {
-                // Sync widget values before execution
-                this.syncWidgetValuesToInputs();
-                
-                // Call original method if it exists
-                if (originalOnExecuted) {
-                    return originalOnExecuted.apply(this, arguments);
-                }
-            };
-            
-            // Get current widget values for execution
-            nodeType.prototype.getWidgetValues = function() {
-                const values = {};
-                this.dynamicWidgets.forEach((widget, name) => {
-                    values[name] = widget.value;
-                });
-                console.log("Current widget values:", values);
-                return values;
-            };
-            
             // Override serialize to save dynamic widget values
             nodeType.prototype.serialize = function() {
                 const data = originalSerialize ? originalSerialize.apply(this, arguments) : {};
@@ -380,6 +363,12 @@ app.registerExtension({
                     data.dynamic_widget_states = dynamicStates;
                 }
                 
+                // Save current template
+                const templateWidget = this.widgets.find(w => w.name === "template");
+                if (templateWidget) {
+                    data.current_template = templateWidget.value;
+                }
+                
                 return data;
             };
             
@@ -387,20 +376,26 @@ app.registerExtension({
             nodeType.prototype.onConfigure = function(data) {
                 const result = originalOnConfigure?.apply(this, arguments);
                 
-                // Restore dynamic widget states if they exist
-                if (data.dynamic_widget_states) {
+                // Restore template if it exists
+                if (data.current_template && data.current_template !== "none") {
                     this.isUpdatingTemplate = true;
                     
                     // Wait for template to load, then restore values
                     setTimeout(() => {
-                        Object.entries(data.dynamic_widget_states).forEach(([name, value]) => {
-                            const widget = this.dynamicWidgets.get(name);
-                            if (widget) {
-                                widget.value = value;
-                            }
-                        });
+                        this.onTemplateChanged(data.current_template);
                         
-                        this.updateTemplatePreview();
+                        // Restore dynamic widget states if they exist
+                        if (data.dynamic_widget_states) {
+                            Object.entries(data.dynamic_widget_states).forEach(([name, value]) => {
+                                const widget = this.dynamicWidgets.get(name);
+                                if (widget) {
+                                    widget.value = value;
+                                }
+                            });
+                            
+                            this.updateTemplatePreview();
+                        }
+                        
                         this.isUpdatingTemplate = false;
                     }, 100);
                 }
