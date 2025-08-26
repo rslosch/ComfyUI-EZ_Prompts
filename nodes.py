@@ -21,12 +21,19 @@ class EZPromptsNode:
         # Load templates to get available choices
         templates_dir = os.path.join(os.path.dirname(__file__), "templates")
         
-        template_choices = ["none"]
+        template_choices = []
         if os.path.exists(templates_dir):
             for filename in os.listdir(templates_dir):
                 if filename.endswith('.json'):
                     template_name = filename[:-5]  # Remove .json extension
                     template_choices.append(template_name)
+        
+        # If no templates found, add "none", otherwise use first template as default
+        if not template_choices:
+            template_choices = ["none"]
+            default_template = "none"
+        else:
+            default_template = template_choices[0]  # Use first template as default
         
         # Load all possible wildcard parameters from templates with their choices
         optional_inputs = {}
@@ -52,6 +59,7 @@ class EZPromptsNode:
                                             # Clean up lines and remove empty ones
                                             wildcard_values = [line.strip() for line in lines if line.strip()]
                                             choices.extend(wildcard_values)
+                                            print(f"Loaded wildcard {wildcard_name} with {len(wildcard_values)} values: {wildcard_values[:3]}...")
                                     except Exception as e:
                                         print(f"Error loading wildcard {wildcard_name} for INPUT_TYPES: {e}")
                                 else:
@@ -67,11 +75,12 @@ class EZPromptsNode:
                         print(f"Error loading template {filename} for INPUT_TYPES: {e}")
         
         print(f"INPUT_TYPES - Template choices: {template_choices}")
+        print(f"INPUT_TYPES - Default template: {default_template}")
         print(f"INPUT_TYPES - Optional inputs: {list(optional_inputs.keys())}")
         
         return {
             "required": {
-                "template": (template_choices, {"default": "none"}),
+                "template": (template_choices, {"default": default_template}),
             },
             "optional": {
                 "mode": ("BOOLEAN", {"default": True, "label_on": "Populate", "label_off": "Fixed"}),

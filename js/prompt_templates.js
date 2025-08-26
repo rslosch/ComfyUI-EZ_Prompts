@@ -18,7 +18,6 @@ app.registerExtension({
                 
                 // Initialize node state
                 this.templateCache = new Map();
-                this.templateTextWidget = null;
                 this.populatedWidget = null;
                 this.modeWidget = null;
                 this.isUpdatingTemplate = false;
@@ -57,30 +56,8 @@ app.registerExtension({
                 // Find the populated widget
                 this.populatedWidget = this.widgets.find(w => w.name === "populated");
                 
-                // Add template text display widget
-                this.addTemplateDisplayWidget();
-            };
-            
-            // Add template display widget
-            nodeType.prototype.addTemplateDisplayWidget = function() {
-                this.templateTextWidget = this.addWidget("text", "template_preview", "", null, {
-                    multiline: true,
-                    readonly: true,
-                    serialize: false
-                });
-                
-                // Style the widget
-                if (this.templateTextWidget) {
-                    this.templateTextWidget.inputEl = null; // Will be created on first draw
-                    this.templateTextWidget.computeSize = () => {
-                        const lines = this.templateTextWidget.value.split('\n').length;
-                        const height = Math.max(150, Math.min(lines * 20 + 80, 400));
-                        return [0, height];
-                    };
-                }
-                
-                // Set initial node size to be wider and taller
-                this.setSize([500, 300]);
+                // No need for template preview widget since we're using native INPUT_TYPES
+                // this.addTemplateDisplayWidget();
             };
             
             // Handle template selection changes
@@ -90,7 +67,6 @@ app.registerExtension({
                 console.log("Template changed to:", templateName);
                 
                 if (templateName === "none") {
-                    this.templateTextWidget.value = "";
                     if (this.populatedWidget) {
                         this.populatedWidget.value = "";
                     }
@@ -126,20 +102,6 @@ app.registerExtension({
                     
                     const templateData = await response.json();
                     
-                    // Load wildcard data for this template
-                    const wildcardResponse = await fetch(`/api/custom/templates/${templateName}/wildcards`);
-                    if (wildcardResponse.ok) {
-                        const wildcardData = await wildcardResponse.json();
-                        
-                        // Update template parameters with wildcard choices
-                        templateData.parameters.forEach(param => {
-                            if (wildcardData[param.name]) {
-                                param.options.choices = wildcardData[param.name].choices;
-                                console.log(`Updated parameter ${param.name} with choices:`, param.options.choices);
-                            }
-                        });
-                    }
-                    
                     // Cache the data
                     this.templateCache.set(templateName, templateData);
                     
@@ -156,14 +118,8 @@ app.registerExtension({
                 
                 const { name, text, parameters = [] } = templateData;
                 
-                // Update template text display with the raw template (with placeholders)
-                this.templateTextWidget.value = text;
-                
                 // Refresh the populated field based on current mode
                 this.refreshPopulatedField();
-                
-                // Always update the template preview to show current state
-                this.updateTemplatePreview();
                 
                 // Set appropriate node size for template display
                 this.setSize([500, 300]);
@@ -217,7 +173,7 @@ app.registerExtension({
                     // Check if this is a wildcard parameter widget (not template, mode, seed, etc.)
                     if (widget.name !== "template" && widget.name !== "mode" && 
                         widget.name !== "seed" && widget.name !== "wildcard_index" && 
-                        widget.name !== "populated" && widget.name !== "template_preview") {
+                        widget.name !== "populated") {
                         
                         const placeholder = `{${widget.name}}`;
                         let value = widget.value !== undefined ? String(widget.value) : '';
@@ -252,10 +208,15 @@ app.registerExtension({
                             templateWidget.options.values = values;
                             
                             console.log("Loaded templates:", values);
+                            
+                            // If template is not "none", load it automatically
+                            if (templateWidget.value && templateWidget.value !== "none") {
+                                this.onTemplateChanged(templateWidget.value);
+                            }
                         }
                     }
                 } catch (error) {
-                        console.error("Failed to load template list:", error);
+                    console.error("Failed to load template list:", error);
                 }
             };
             
@@ -288,7 +249,7 @@ app.registerExtension({
                                 // Check if this is a wildcard parameter widget (not template, mode, seed, etc.)
                                 if (widget.name !== "template" && widget.name !== "mode" && 
                                     widget.name !== "seed" && widget.name !== "wildcard_index" && 
-                                    widget.name !== "populated" && widget.name !== "template_preview") {
+                                    widget.name !== "populated") {
                                     
                                     const placeholder = `{${widget.name}}`;
                                     let value = widget.value !== undefined ? String(widget.value) : '';
