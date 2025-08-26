@@ -15,7 +15,7 @@ class EZPromptsNode:
         templates = cls.get_available_templates()
         template_names = list(templates.keys()) if templates else ["No templates found"]
         
-        # Base inputs
+        # Only core inputs - variables will be handled dynamically in UI
         inputs = {
             "required": {
                 "template": (template_names, {"default": template_names[0] if template_names else ""}),
@@ -25,18 +25,6 @@ class EZPromptsNode:
             "optional": {},
             "hidden": {"unique_id": "UNIQUE_ID"}
         }
-        
-        # Add dynamic variable overrides if template is available
-        if template_names and template_names[0] != "No templates found":
-            template_data = templates.get(template_names[0], {})
-            variables = template_data.get("variables", {})
-            
-            for var_name, wildcard_file in variables.items():
-                wildcard_options = cls.get_wildcard_options(wildcard_file)
-                if wildcard_options:
-                    # Add "Random" as first option
-                    options = ["🎲 Random"] + wildcard_options
-                    inputs["optional"][f"override_{var_name}"] = (options, {"default": "🎲 Random"})
         
         return inputs
     
@@ -111,18 +99,19 @@ class EZPromptsNode:
         # Set up random seed
         random.seed(seed)
         
-        # Process variable overrides and generate values
+        # Get variable overrides from the node's stored values
+        variable_overrides = getattr(self, '_variable_overrides', {})
+        
+        # Process variables and generate values
         variable_values = {}
         sequential_state = getattr(self, '_sequential_state', {})
         
         for var_name, wildcard_file in variables.items():
-            override_key = f"override_{var_name}"
-            override_value = kwargs.get(override_key, "🎲 Random")
+            override_value = variable_overrides.get(var_name, "🎲 Random")
             
             if override_value != "🎲 Random":
-                # Use overridden value (remove emoji if present)
-                clean_value = override_value.replace("🎲 ", "")
-                variable_values[var_name] = clean_value
+                # Use overridden value
+                variable_values[var_name] = override_value
             else:
                 # Generate value based on mode
                 options = self.get_wildcard_options(wildcard_file)
