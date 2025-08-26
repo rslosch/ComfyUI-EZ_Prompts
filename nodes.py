@@ -28,6 +28,25 @@ class EZPromptsNode:
                     template_name = filename[:-5]  # Remove .json extension
                     template_choices.append(template_name)
         
+        # Load all possible wildcard parameters from templates
+        optional_inputs = {}
+        if os.path.exists(templates_dir):
+            for filename in os.listdir(templates_dir):
+                if filename.endswith('.json'):
+                    template_path = os.path.join(templates_dir, filename)
+                    try:
+                        with open(template_path, 'r', encoding='utf-8') as f:
+                            template_data = json.load(f)
+                        
+                        if "variables" in template_data:
+                            for var_name in template_data["variables"].keys():
+                                optional_inputs[var_name] = ("STRING", {"default": "Random"})
+                    except Exception as e:
+                        print(f"Error loading template {filename} for INPUT_TYPES: {e}")
+        
+        print(f"INPUT_TYPES - Template choices: {template_choices}")
+        print(f"INPUT_TYPES - Optional inputs: {list(optional_inputs.keys())}")
+        
         return {
             "required": {
                 "template": (template_choices, {"default": "none"}),
@@ -37,6 +56,7 @@ class EZPromptsNode:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 "wildcard_index": ("INT", {"default": 0, "min": 0, "max": 99999}),
                 "populated": ("STRING", {"multiline": True, "default": ""}),
+                **optional_inputs  # Include all wildcard parameters
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -203,6 +223,17 @@ class EZPromptsNode:
         if template == "none":
             return ("",)
         
+        # Ensure seed and wildcard_index are valid numbers
+        try:
+            seed = int(seed) if seed is not None else 0
+            wildcard_index = int(wildcard_index) if wildcard_index is not None else 0
+        except (ValueError, TypeError):
+            print(f"Warning: Invalid seed '{seed}' or wildcard_index '{wildcard_index}', using defaults")
+            seed = 0
+            wildcard_index = 0
+        
+        print(f"Using seed: {seed}, wildcard_index: {wildcard_index}")
+        
         # Fixed mode: use populated field directly
         if not mode and populated and populated.strip():
             print(f"Fixed mode: using populated field content: {populated}")
@@ -214,6 +245,7 @@ class EZPromptsNode:
         
         # Populate mode: process template with seed-based randomization
         print(f"Populate mode: processing template '{template}' with seed {seed}, index {wildcard_index}")
+        print(f"Received wildcard parameters: {kwargs}")
         
         # Start with the base template text
         prompt_text = template_data["text"]
@@ -227,6 +259,7 @@ class EZPromptsNode:
         # Replace placeholders with parameter values
         for i, param in enumerate(template_data["parameters"]):
             param_name = param["name"]
+            # Get value from kwargs (which comes from INPUT_TYPES) or use default
             param_value = kwargs.get(param_name, param.get("defaultValue", "Random"))
             
             print(f"Processing parameter: {param_name} = {param_value}")

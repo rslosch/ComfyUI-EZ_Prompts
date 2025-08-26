@@ -11,6 +11,7 @@ app.registerExtension({
             const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
             const originalOnConfigure = nodeType.prototype.onConfigure;
             const originalSerialize = nodeType.prototype.serialize;
+            const originalOnExecuted = nodeType.prototype.onExecuted;
             
             // Override onNodeCreated
             nodeType.prototype.onNodeCreated = function() {
@@ -74,13 +75,13 @@ app.registerExtension({
                     this.templateTextWidget.inputEl = null; // Will be created on first draw
                     this.templateTextWidget.computeSize = () => {
                         const lines = this.templateTextWidget.value.split('\n').length;
-                        const height = Math.max(120, Math.min(lines * 20 + 60, 300));
+                        const height = Math.max(150, Math.min(lines * 20 + 80, 400));
                         return [0, height];
                     };
                 }
                 
-                // Set initial node size to be wider
-                this.setSize([400, 200]);
+                // Set initial node size to be wider and taller
+                this.setSize([500, 300]);
             };
             
             // Handle template selection changes
@@ -184,8 +185,11 @@ app.registerExtension({
                     }
                 }
                 
-                // Resize node to fit new content
-                this.setSize([400, Math.max(200, 200 + parameters.length * 30)]);
+                // Resize node to fit new content with better dimensions
+                const baseHeight = 300;
+                const paramHeight = parameters.length * 35;
+                const finalHeight = Math.max(baseHeight, baseHeight + paramHeight);
+                this.setSize([500, finalHeight]);
                 
                 console.log(`Template "${name}" applied with ${parameters.length} parameters`);
             };
@@ -228,6 +232,15 @@ app.registerExtension({
                         if (widget && widget.options) {
                             widget.options.values = choices;
                             console.log(`Widget ${name} configured with values:`, widget.options.values);
+                        }
+                        
+                        // Connect widget to the node's input system
+                        if (this.inputs) {
+                            const inputIndex = this.inputs.findIndex(input => input.name === name);
+                            if (inputIndex >= 0) {
+                                widget.inputIndex = inputIndex;
+                                console.log(`Connected widget ${name} to input index ${inputIndex}`);
+                            }
                         }
                         break;
                         
@@ -402,6 +415,42 @@ app.registerExtension({
                 
                 return result;
             };
+
+            // Get current widget values for execution
+            nodeType.prototype.getWidgetValues = function() {
+                const values = {};
+                this.dynamicWidgets.forEach((widget, name) => {
+                    values[name] = widget.value;
+                });
+                console.log("Current widget values:", values);
+                return values;
+            };
+            
+            // Synchronize widget values with node inputs before execution
+            nodeType.prototype.syncWidgetValuesToInputs = function() {
+                console.log("Synchronizing widget values to inputs...");
+                
+                this.dynamicWidgets.forEach((widget, name) => {
+                    if (widget.inputIndex !== undefined && this.inputs && this.inputs[widget.inputIndex]) {
+                        // Update the input value with the widget value
+                        this.inputs[widget.inputIndex].value = widget.value;
+                        console.log(`Synced ${name} = ${widget.value} to input index ${widget.inputIndex}`);
+                    }
+                });
+            };
+            
+            // Override the node's execution method to ensure widget values are synced
+            nodeType.prototype.onExecuted = function(message) {
+                // Sync widget values before execution
+                this.syncWidgetValuesToInputs();
+                
+                // Call original method if it exists
+                if (originalOnExecuted) {
+                    return originalOnExecuted.apply(this, arguments);
+                }
+            };
+            
+            // Get current widget values for execution
         }
     }
 });
