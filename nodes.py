@@ -233,25 +233,29 @@ class EZPromptsNode:
             wildcard_index = 0
         
         print(f"Using seed: {seed}, wildcard_index: {wildcard_index}")
+        print(f"Mode: {'Populate' if mode else 'Fixed'}")
         
-        # Fixed mode: use populated field directly
-        if not mode and populated and populated.strip():
-            print(f"Fixed mode: using populated field content: {populated}")
-            return (populated,)
-        
-        template_data = self.templates.get(template)
-        if not template_data:
-            return ("Template not found",)
+        # Fixed mode: use populated field directly, bypass template processing
+        if not mode:
+            if populated and populated.strip():
+                print(f"Fixed mode: using populated field content directly")
+                return (populated,)
+            else:
+                print(f"Fixed mode: populated field is empty, returning empty string")
+                return ("",)
         
         # Populate mode: process template with seed-based randomization
         print(f"Populate mode: processing template '{template}' with seed {seed}, index {wildcard_index}")
         print(f"Received wildcard parameters: {kwargs}")
         
+        template_data = self.templates.get(template)
+        if not template_data:
+            return ("Template not found",)
+        
         # Start with the base template text
         prompt_text = template_data["text"]
         
         print(f"Template text: {prompt_text}")
-        print(f"Populated field (display only): {populated}")
         
         # Set seed for deterministic randomization
         random.seed(seed)

@@ -168,22 +168,11 @@ app.registerExtension({
                     this.createParameterWidget(param);
                 });
                 
-                // Update template text with current parameter values
-                this.updateTemplatePreview();
+                // Refresh the populated field based on current mode
+                this.refreshPopulatedField();
                 
-                // Configure populated field based on current mode
-                if (this.modeWidget && this.populatedWidget) {
-                    const isPopulateMode = this.modeWidget.value;
-                    this.populatedWidget.disabled = isPopulateMode;
-                    
-                    if (isPopulateMode) {
-                        // Populate mode: show resolved template
-                        this.updateTemplatePreview();
-                    } else {
-                        // Fixed mode: allow manual editing
-                        this.populatedWidget.value = text;
-                    }
-                }
+                // Always update the template preview to show current state
+                this.updateTemplatePreview();
                 
                 // Resize node to fit new content with better dimensions
                 const baseHeight = 300;
@@ -274,6 +263,9 @@ app.registerExtension({
             nodeType.prototype.onParameterChanged = function(parameterName, value) {
                 console.log("Parameter changed:", parameterName, "=", value);
                 
+                // Immediately sync this widget value to the corresponding input
+                this.syncSingleWidgetValue(parameterName, value);
+                
                 // Update template preview only in populate mode
                 if (this.modeWidget && this.modeWidget.value) {
                     this.updateTemplatePreview();
@@ -281,6 +273,15 @@ app.registerExtension({
                 
                 // Mark node as modified (but don't resize)
                 this.setDirtyCanvas(true, true);
+            };
+            
+            // Sync a single widget value to its corresponding input
+            nodeType.prototype.syncSingleWidgetValue = function(paramName, value) {
+                const widget = this.dynamicWidgets.get(paramName);
+                if (widget && widget.inputIndex !== undefined && this.inputs && this.inputs[widget.inputIndex]) {
+                    this.inputs[widget.inputIndex].value = value;
+                    console.log(`Immediately synced ${paramName} = ${value} to input index ${widget.inputIndex}`);
+                }
             };
             
             // Update template preview with current parameter values
@@ -448,6 +449,58 @@ app.registerExtension({
                 if (originalOnExecuted) {
                     return originalOnExecuted.apply(this, arguments);
                 }
+            };
+            
+            // Also sync values when the node is about to be queued for execution
+            nodeType.prototype.onBeforeExecuted = function() {
+                console.log("Node about to be executed, syncing widget values...");
+                this.syncWidgetValuesToInputs();
+            };
+            
+            // Refresh populated field content based on current mode
+            nodeType.prototype.refreshPopulatedField = function() {
+                if (!this.populatedWidget || !this.modeWidget) return;
+                
+                const isPopulateMode = this.modeWidget.value;
+                this.populatedWidget.disabled = isPopulateMode;
+                
+                if (isPopulateMode) {
+                    // Populate mode: show resolved template
+                    this.updateTemplatePreview();
+                } else {
+                    // Fixed mode: show template with current parameter values
+                    const templateWidget = this.widgets.find(w => w.name === "template");
+                    if (templateWidget && templateWidget.value !== "none") {
+                        const templateData = this.templateCache.get(templateWidget.value);
+                        if (templateData) {
+                            let templateText = templateData.text;
+                            
+                            // Replace placeholders with current values
+                            this.dynamicWidgets.forEach((widget, paramName) => {
+                                const placeholder = `{${paramName}}`;
+                                let value = widget.value !== undefined ? String(widget.value) : '';
+                                
+                                // If value is "Random", show the wildcard variable name
+                                if (value === "Random") {
+                                    value = `{${paramName}}`; // Show the original placeholder
+                                }
+                                
+                                // Replace all occurrences of the placeholder
+                                templateText = templateText.replace(new RegExp(placeholder, 'g'), value);
+                            });
+                            
+                            this.populatedWidget.value = templateText;
+                        }
+                    }
+                }
+            };
+            
+            // Handle mode changes
+            nodeType.prototype.onModeChanged = function(mode) {
+                console.log("Mode changed to:", mode ? "Populate" : "Fixed");
+                
+                // Refresh the populated field based on the new mode
+                this.refreshPopulatedField();
             };
             
             // Get current widget values for execution
