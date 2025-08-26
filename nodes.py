@@ -251,16 +251,33 @@ class EZPromptsNode:
         # Populate mode: process template with seed-based randomization
         print(f"Populate mode: processing template '{template}' with seed {seed}, index {wildcard_index}")
         
-        # Parse wildcard parameters from JSON
-        try:
-            wildcard_values = json.loads(wildcard_params) if wildcard_params else {}
-            print(f"Parsed wildcard parameters: {wildcard_values}")
-            print(f"Wildcard params JSON string: '{wildcard_params}'")
-            print(f"Wildcard values type: {type(wildcard_values)}")
-            print(f"Wildcard values keys: {list(wildcard_values.keys()) if isinstance(wildcard_values, dict) else 'Not a dict'}")
-        except json.JSONDecodeError as e:
-            print(f"Warning: Failed to parse wildcard_params JSON: {e}")
-            wildcard_values = {}
+        # Try to get wildcard parameters from populated field first (more reliable)
+        wildcard_values = {}
+        if populated and populated.strip():
+            try:
+                # Check if populated field contains JSON with wildcard data
+                populated_data = json.loads(populated)
+                if isinstance(populated_data, dict) and "wildcard_params" in populated_data:
+                    wildcard_values = populated_data["wildcard_params"]
+                    print(f"Found wildcard params in populated field: {wildcard_values}")
+                else:
+                    print("Populated field is not JSON or doesn't contain wildcard_params")
+            except json.JSONDecodeError:
+                print("Populated field is not valid JSON, treating as regular text")
+        
+        # Fallback to hidden wildcard_params field if populated field didn't work
+        if not wildcard_values:
+            try:
+                wildcard_values = json.loads(wildcard_params) if wildcard_params else {}
+                print(f"Fallback: Parsed wildcard parameters from hidden field: {wildcard_values}")
+                print(f"Fallback: Wildcard params JSON string: '{wildcard_params}'")
+            except json.JSONDecodeError as e:
+                print(f"Warning: Failed to parse wildcard_params JSON: {e}")
+                wildcard_values = {}
+        
+        print(f"Final wildcard values to use: {wildcard_values}")
+        print(f"Wildcard values type: {type(wildcard_values)}")
+        print(f"Wildcard values keys: {list(wildcard_values.keys()) if isinstance(wildcard_values, dict) else 'Not a dict'}")
         
         template_data = self.templates.get(template)
         if not template_data:

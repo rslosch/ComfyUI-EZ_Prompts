@@ -100,11 +100,11 @@ app.registerExtension({
                 // Update our internal state
                 this.wildcardParamValues[paramName] = value;
                 
-                // Update the hidden JSON field
+                // Update the hidden JSON field and populated field
                 this.updateHiddenWildcardParams();
                 
-                // Update the populated field preview
-                this.updateTemplatePreview();
+                // Refresh the populated field display
+                this.refreshPopulatedField();
             };
             
             // Update the hidden wildcard params JSON field
@@ -119,6 +119,50 @@ app.registerExtension({
                     // Also ensure the node itself is marked as dirty
                     this.setDirtyCanvas(true, true);
                 }
+                
+                // ALSO update the populated field with wildcard params when in Populate mode
+                if (this.populatedWidget && this.modeWidget && this.modeWidget.value) {
+                    // Store wildcard parameters as JSON in the populated field
+                    const wildcardData = {
+                        wildcard_params: this.wildcardParamValues,
+                        template_preview: this.getTemplatePreviewText()
+                    };
+                    this.populatedWidget.value = JSON.stringify(wildcardData);
+                    console.log("Updated populated field with wildcard data:", this.populatedWidget.value);
+                }
+            };
+            
+            // Get template preview text with current wildcard values
+            nodeType.prototype.getTemplatePreviewText = function() {
+                const templateWidget = this.widgets.find(w => w.name === "template");
+                const templateName = templateWidget?.value;
+                
+                if (!templateName || templateName === "none") {
+                    return "";
+                }
+                
+                const templateData = this.templateCache.get(templateName);
+                if (!templateData) {
+                    return "";
+                }
+                
+                let previewText = templateData.text;
+                
+                // Replace parameter placeholders with current wildcard parameter values
+                Object.entries(this.wildcardParamValues).forEach(([paramName, value]) => {
+                    const placeholder = `{${paramName}}`;
+                    let displayValue = value !== undefined ? String(value) : '';
+                    
+                    // If value is "Random", show the wildcard variable name
+                    if (displayValue === "Random") {
+                        displayValue = `{${paramName}}`; // Show the original placeholder
+                    }
+                    
+                    // Replace all occurrences of the placeholder
+                    previewText = previewText.replace(new RegExp(placeholder, 'g'), displayValue);
+                });
+                
+                return previewText;
             };
             
             // Handle template selection changes
@@ -316,10 +360,15 @@ app.registerExtension({
                 this.populatedWidget.disabled = isPopulateMode;
                 
                 if (isPopulateMode) {
-                    // Populate mode: show resolved template
-                    this.updateTemplatePreview();
+                    // Populate mode: store wildcard parameters as JSON in populated field
+                    const wildcardData = {
+                        wildcard_params: this.wildcardParamValues,
+                        template_preview: this.getTemplatePreviewText()
+                    };
+                    this.populatedWidget.value = JSON.stringify(wildcardData);
+                    console.log("Populate mode: stored wildcard data in populated field:", this.populatedWidget.value);
                 } else {
-                    // Fixed mode: show template with current parameter values
+                    // Fixed mode: show template with current parameter values as readable text
                     const templateWidget = this.widgets.find(w => w.name === "template");
                     if (templateWidget && templateWidget.value !== "none") {
                         const templateData = this.templateCache.get(templateWidget.value);
@@ -341,44 +390,9 @@ app.registerExtension({
                             });
                             
                             this.populatedWidget.value = templateText;
+                            console.log("Fixed mode: populated field with readable template text");
                         }
                     }
-                }
-            };
-            
-            // Update template preview with current parameter values
-            nodeType.prototype.updateTemplatePreview = function() {
-                const templateWidget = this.widgets.find(w => w.name === "template");
-                const templateName = templateWidget?.value;
-                
-                if (!templateName || templateName === "none") {
-                    return;
-                }
-                
-                const templateData = this.templateCache.get(templateName);
-                if (!templateData) {
-                    return;
-                }
-                
-                let previewText = templateData.text;
-                
-                // Replace parameter placeholders with current wildcard parameter values
-                Object.entries(this.wildcardParamValues).forEach(([paramName, value]) => {
-                    const placeholder = `{${paramName}}`;
-                    let displayValue = value !== undefined ? String(value) : '';
-                    
-                    // If value is "Random", show the wildcard variable name
-                    if (displayValue === "Random") {
-                        displayValue = `{${paramName}}`; // Show the original placeholder
-                    }
-                    
-                    // Replace all occurrences of the placeholder
-                    previewText = previewText.replace(new RegExp(placeholder, 'g'), displayValue);
-                });
-                
-                // Update the populated widget if it exists and we're in populate mode
-                if (this.populatedWidget && this.modeWidget && this.modeWidget.value) {
-                    this.populatedWidget.value = previewText;
                 }
             };
             
