@@ -2,6 +2,7 @@ import { app } from "../../scripts/app.js";
 import { ComfyWidgets } from "../../scripts/widgets.js";
 
 console.log("EZ Prompts: Extension loading...");
+console.log("EZ Prompts: ComfyWidgets available:", Object.keys(ComfyWidgets));
 
 // CSS Styles for EZ Prompts
 const style = document.createElement("style");
