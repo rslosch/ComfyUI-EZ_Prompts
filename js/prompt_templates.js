@@ -20,6 +20,7 @@ app.registerExtension({
                 this.templateCache = new Map();
                 this.dynamicWidgets = new Map();
                 this.templateTextWidget = null;
+                this.populatedWidget = null;
                 this.isUpdatingTemplate = false;
                 
                 // Setup initial widgets and load templates
@@ -41,6 +42,9 @@ app.registerExtension({
                         this.onTemplateChanged(value);
                     };
                 }
+                
+                // Find the populated widget
+                this.populatedWidget = this.widgets.find(w => w.name === "populated");
                 
                 // Add template text display widget
                 this.addTemplateDisplayWidget();
@@ -76,6 +80,9 @@ app.registerExtension({
                 
                 if (templateName === "none") {
                     this.templateTextWidget.value = "";
+                    if (this.populatedWidget) {
+                        this.populatedWidget.value = "";
+                    }
                     this.setSize(this.computeSize());
                     return;
                 }
@@ -107,6 +114,20 @@ app.registerExtension({
                     }
                     
                     const templateData = await response.json();
+                    
+                    // Load wildcard data for this template
+                    const wildcardResponse = await fetch(`/api/custom/templates/${templateName}/wildcards`);
+                    if (wildcardResponse.ok) {
+                        const wildcardData = await wildcardResponse.json();
+                        
+                        // Update template parameters with wildcard choices
+                        templateData.parameters.forEach(param => {
+                            if (wildcardData[param.name]) {
+                                param.options.choices = wildcardData[param.name].choices;
+                                console.log(`Updated parameter ${param.name} with choices:`, param.options.choices);
+                            }
+                        });
+                    }
                     
                     // Cache the data
                     this.templateCache.set(templateName, templateData);
@@ -154,42 +175,6 @@ app.registerExtension({
                 
                 // Create appropriate widget based on type
                 switch (type) {
-                    case "text":
-                        widget = this.addWidget("string", name, defaultValue || "", 
-                            (value) => this.onParameterChanged(name, value),
-                            { 
-                                multiline: options.multiline || false,
-                                ...widgetOptions 
-                            }
-                        );
-                        break;
-                        
-                    case "number":
-                        widget = this.addWidget("number", name, defaultValue || 0,
-                            (value) => this.onParameterChanged(name, value),
-                            { 
-                                min: options.min || 0,
-                                max: options.max || 100,
-                                step: options.step || 0.1,
-                                precision: 2,
-                                ...widgetOptions 
-                            }
-                        );
-                        break;
-                        
-                    case "integer":
-                        widget = this.addWidget("number", name, defaultValue || 0,
-                            (value) => this.onParameterChanged(name, Math.round(value)),
-                            {
-                                min: options.min || 0,
-                                max: options.max || 100,
-                                step: 1,
-                                precision: 0,
-                                ...widgetOptions
-                            }
-                        );
-                        break;
-                        
                     case "select":
                         // Ensure we have choices for select widgets
                         const choices = options.choices || [];
@@ -218,13 +203,6 @@ app.registerExtension({
                         }
                         break;
                         
-                    case "boolean":
-                        widget = this.addWidget("toggle", name, defaultValue || false,
-                            (value) => this.onParameterChanged(name, value),
-                            widgetOptions
-                        );
-                        break;
-                        
                     default:
                         console.warn("Unknown parameter type:", type);
                         return null;
@@ -244,17 +222,6 @@ app.registerExtension({
                         widget.wildcardFile = wildcard_file;
                     }
                     
-                    // Ensure the widget is properly connected to the node's inputs
-                    if (this.inputs) {
-                        // Find the corresponding input
-                        const inputIndex = this.inputs.findIndex(input => input.name === name);
-                        if (inputIndex >= 0) {
-                            // Connect widget to input
-                            widget.inputIndex = inputIndex;
-                            console.log(`Connected widget ${name} to input index ${inputIndex}`);
-                        }
-                    }
-                    
                     console.log("Created widget:", name, widget, "choices:", options.choices?.length || 0);
                     console.log("Widget values:", widget.options?.values);
                 }
@@ -268,9 +235,6 @@ app.registerExtension({
                 
                 // Update template preview
                 this.updateTemplatePreview();
-                
-                // Handle conditional widget display
-                this.updateConditionalWidgets();
                 
                 // Mark node as modified
                 this.setDirtyCanvas(true, true);
@@ -312,18 +276,13 @@ app.registerExtension({
                     previewText = previewText.replace(new RegExp(placeholder, 'g'), value);
                 });
                 
-                // Update the preview widget
-                this.templateTextWidget.value = previewText;
+                // Update the populated widget if it exists
+                if (this.populatedWidget) {
+                    this.populatedWidget.value = previewText;
+                }
                 
                 // Force a redraw to update the display
                 this.setSize(this.computeSize());
-            };
-            
-            // Update conditional widget display
-            nodeType.prototype.updateConditionalWidgets = function() {
-                // This would handle conditional display based on parameter values
-                // For now, we'll keep all widgets visible
-                console.log("Updating conditional widgets");
             };
             
             // Clear all dynamic widgets
@@ -367,16 +326,6 @@ app.registerExtension({
             nodeType.prototype.showError = function(message) {
                 console.error(message);
                 // You could add toast notification here if available
-            };
-            
-            // Get current widget values for execution
-            nodeType.prototype.getWidgetValues = function() {
-                const values = {};
-                this.dynamicWidgets.forEach((widget, name) => {
-                    values[name] = widget.value;
-                });
-                console.log("Current widget values:", values);
-                return values;
             };
             
             // Override serialize to save dynamic widget values
