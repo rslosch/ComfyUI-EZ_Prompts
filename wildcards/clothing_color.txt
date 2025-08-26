@@ -1,0 +1,12 @@
+white
+black
+navy blue
+cream
+beige
+soft pink
+light blue
+gray
+sage green
+burgundy
+camel
+charcoal 

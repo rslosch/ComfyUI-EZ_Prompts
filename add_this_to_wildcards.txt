@@ -1,0 +1,155 @@
+# environment.txt
+in a cozy cafe
+at home in natural light
+outdoors in golden hour
+in a modern apartment
+by a large window
+in a bright room
+at the beach
+in a park setting
+in an urban environment
+in a garden setting
+
+# hair_length.txt
+short
+medium-length
+long
+shoulder-length
+pixie cut
+bob-length
+waist-length
+
+# hair_color.txt
+black
+brown
+blonde
+auburn
+red
+silver
+gray
+dark brown
+light brown
+platinum blonde
+honey blonde
+chestnut
+
+# hair_style.txt
+flowing straight
+loose waves
+tight curls
+sleek and straight
+messy and natural
+neatly styled
+side-swept
+pulled back
+in a ponytail
+in a bun
+
+# expression_type.txt
+genuine smile
+soft smile
+bright smile
+gentle expression
+confident look
+serene expression
+joyful expression
+contemplative look
+warm smile
+natural expression
+
+# eye_description.txt
+bright blue eyes
+warm brown eyes
+sparkling green eyes
+deep hazel eyes
+expressive dark eyes
+captivating eyes
+kind eyes
+intelligent eyes
+soulful eyes
+striking eyes
+
+# lip_description.txt
+natural pink lips
+soft coral lips
+nude lips
+glossy lips
+matte lips
+full lips
+subtle lip color
+well-defined lips
+naturally colored lips
+gentle smile
+
+# clothing_color.txt
+white
+black
+navy blue
+cream
+beige
+soft pink
+light blue
+gray
+sage green
+burgundy
+camel
+charcoal
+
+# clothing_garment.txt
+t-shirt
+sweater
+blouse
+shirt
+tank top
+cardigan
+hoodie
+jacket
+dress
+top
+
+# pose_description.txt
+looking directly at camera
+glancing over shoulder
+resting chin on hand
+arms crossed casually
+hand in hair
+leaning against wall
+sitting comfortably
+standing confidently
+relaxed posture
+natural pose
+
+# studio_environment.txt
+a professional photo studio
+an upscale photography studio
+a modern portrait studio
+a well-equipped studio space
+a high-end photography facility
+
+# formal_clothing.txt
+business suit
+blazer
+dress shirt
+formal blouse
+elegant dress
+professional attire
+tailored jacket
+button-up shirt
+
+# studio_pose.txt
+seated in director's chair
+standing with confident posture
+leaning against studio prop
+posed with professional bearing
+arranged in classic portrait stance
+positioned with elegant composure
+
+# studio_background.txt
+seamless white
+textured gray
+solid black
+gradient backdrop
+neutral beige
+professional gray
+clean white
+minimalist background

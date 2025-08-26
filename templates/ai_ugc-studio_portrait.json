@@ -1,0 +1,21 @@
+{
+    "name": "ai_ugc-studio_portrait", 
+    "description": "Professional studio portrait template with overlapping variables",
+    "template": "A professional studio portrait of an attractive {age} {ethnicity} {gender} photographed in {environment}. The subject has {hair_length} {hair_color} hair styled {hair_style}, {eye_description}, and {lip_description}. They're wearing {clothing_color} {clothing_garment} and displaying a {expression_type} while {pose_description}. Shot with professional studio lighting setup including key light, fill light, and hair light. The background features a {background_type} backdrop. High-end portrait photography with controlled lighting and sharp focus on facial details.",
+    "variables": {
+      "age": "age.txt",
+      "ethnicity": "ethnicity.txt",
+      "gender": "gender.txt", 
+      "environment": "studio_environment.txt",
+      "hair_length": "hair_length.txt",
+      "hair_color": "hair_color.txt",
+      "hair_style": "hair_style.txt",
+      "eye_description": "eye_description.txt",
+      "lip_description": "lip_description.txt", 
+      "expression_type": "expression_type.txt",
+      "clothing_color": "clothing_color.txt",
+      "clothing_garment": "formal_clothing.txt",
+      "pose_description": "studio_pose.txt",
+      "background_type": "studio_background.txt"
+    }
+  }

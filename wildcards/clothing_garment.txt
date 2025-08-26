@@ -1,0 +1,10 @@
+t-shirt
+sweater
+blouse
+shirt
+tank top
+cardigan
+hoodie
+jacket
+dress
+top 

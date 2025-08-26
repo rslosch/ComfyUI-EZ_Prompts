@@ -1,0 +1,7 @@
+short
+medium-length
+long
+shoulder-length
+pixie cut
+bob-length
+waist-length 

@@ -1,0 +1,12 @@
+black
+brown
+blonde
+auburn
+red
+silver
+gray
+dark brown
+light brown
+platinum blonde
+honey blonde
+chestnut 
