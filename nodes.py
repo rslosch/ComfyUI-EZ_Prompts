@@ -15,7 +15,7 @@ class EZPromptsNode:
         templates = cls.get_available_templates()
         template_names = list(templates.keys()) if templates else ["No templates found"]
         
-        # Only core inputs - variables will be handled dynamically in UI
+        # Core inputs
         inputs = {
             "required": {
                 "template": (template_names, {"default": template_names[0] if template_names else ""}),
@@ -84,13 +84,26 @@ class EZPromptsNode:
             print(f"Error loading wildcard file {wildcard_file}: {e}")
             return []
     
-    def set_variable_overrides(self, overrides: Dict[str, str]):
-        """Set variable overrides from the UI"""
-        self._variable_overrides = overrides
-    
-    def get_variable_overrides(self) -> Dict[str, str]:
-        """Get current variable overrides"""
-        return getattr(self, '_variable_overrides', {})
+    @classmethod
+    def get_all_wildcard_data(cls) -> Dict[str, List[str]]:
+        """Get all wildcard data for API endpoint"""
+        wildcards_dir = cls.get_wildcards_directory()
+        wildcard_data = {}
+        
+        if not os.path.exists(wildcards_dir):
+            return wildcard_data
+            
+        for filename in os.listdir(wildcards_dir):
+            if filename.endswith('.txt'):
+                wildcard_path = os.path.join(wildcards_dir, filename)
+                try:
+                    with open(wildcard_path, 'r', encoding='utf-8') as f:
+                        options = [line.strip() for line in f.readlines() if line.strip() and not line.startswith('#')]
+                        wildcard_data[filename] = options
+                except Exception as e:
+                    print(f"Error loading wildcard file {filename}: {e}")
+                    
+        return wildcard_data
     
     def generate_prompt(self, template: str, mode: str, seed: int, unique_id=None, **kwargs) -> Tuple[str, str]:
         """Generate a prompt using the selected template and parameters"""
@@ -107,20 +120,17 @@ class EZPromptsNode:
         # Set up random seed
         random.seed(seed)
         
-        # Get variable overrides from the node's stored values
-        # The UI will set these via the _variable_overrides attribute
-        variable_overrides = getattr(self, '_variable_overrides', {})
-        
         # Process variables and generate values
         variable_values = {}
         sequential_state = getattr(self, '_sequential_state', {})
         
         for var_name, wildcard_file in variables.items():
-            override_value = variable_overrides.get(var_name, "🎲 Random")
+            # Check if there's a widget value for this variable
+            widget_value = kwargs.get(var_name, None)
             
-            if override_value != "🎲 Random":
-                # Use overridden value from UI
-                variable_values[var_name] = override_value
+            if widget_value and widget_value != "🎲 Random":
+                # Use widget value (set by UI)
+                variable_values[var_name] = widget_value
             else:
                 # Generate value based on mode
                 options = self.get_wildcard_options(wildcard_file)

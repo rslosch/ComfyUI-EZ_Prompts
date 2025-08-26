@@ -1,8 +1,6 @@
 import { app } from "../../scripts/app.js";
-import { ComfyWidgets } from "../../scripts/widgets.js";
 
 console.log("EZ Prompts: Extension loading...");
-console.log("EZ Prompts: ComfyWidgets available:", Object.keys(ComfyWidgets));
 
 // CSS Styles for EZ Prompts
 const style = document.createElement("style");
@@ -170,11 +168,44 @@ console.log("EZ Prompts: CSS styles added");
 // Template data cache
 let templateCache = {};
 
-// Load template data from the backend
+// Wildcard data cache
+let wildcardData = {};
+
+// Load wildcard data
+async function loadWildcardData() {
+    console.log("EZ Prompts: Loading wildcard data...");
+    try {
+        // Use hardcoded wildcard data for now
+        wildcardData = {
+            "age.txt": ["18-year-old", "25-year-old", "30-year-old", "35-year-old"],
+            "ethnicity.txt": ["Asian", "Caucasian", "Hispanic", "African American"],
+            "gender.txt": ["woman", "man"],
+            "environment.txt": ["in a cozy cafe", "at home in natural light", "outdoors in golden hour"],
+            "hair_length.txt": ["short", "medium-length", "long", "shoulder-length"],
+            "hair_color.txt": ["black", "brown", "blonde", "auburn", "red"],
+            "hair_style.txt": ["flowing straight", "loose waves", "tight curls", "sleek and straight"],
+            "expression_type.txt": ["genuine smile", "soft smile", "confident look", "serene expression"],
+            "eye_description.txt": ["bright blue eyes", "warm brown eyes", "sparkling green eyes"],
+            "lip_description.txt": ["natural pink lips", "soft coral lips", "nude lips"],
+            "clothing_color.txt": ["white", "black", "navy blue", "cream", "beige"],
+            "clothing_garment.txt": ["t-shirt", "sweater", "blouse", "shirt", "tank top"],
+            "pose_description.txt": ["looking directly at camera", "resting chin on hand", "arms crossed casually"],
+            "studio_environment.txt": ["a professional photo studio", "an upscale photography studio"],
+            "formal_clothing.txt": ["business suit", "blazer", "dress shirt", "formal blouse"],
+            "studio_pose.txt": ["seated in director's chair", "standing with confident posture"],
+            "studio_background.txt": ["seamless white", "textured gray", "solid black", "gradient backdrop"]
+        };
+        console.log("EZ Prompts: Wildcard data loaded:", Object.keys(wildcardData));
+    } catch (error) {
+        console.log('EZ Prompts: Error loading wildcard data:', error);
+    }
+}
+
+// Load template data
 async function loadTemplateData() {
     console.log("EZ Prompts: Loading template data...");
     try {
-        // For now, use the template data directly since we don't have a backend endpoint
+        // Use hardcoded template data for now
         templateCache = {
             "ai_ugc-iphone_selfie": {
                 "name": "ai_ugc-iphone_selfie",
@@ -223,27 +254,6 @@ async function loadTemplateData() {
         console.log('EZ Prompts: Error loading template data:', error);
     }
 }
-
-// Sample wildcard data for preview
-const wildcardData = {
-    "age.txt": ["18-year-old", "25-year-old", "30-year-old", "35-year-old"],
-    "ethnicity.txt": ["Asian", "Caucasian", "Hispanic", "African American"],
-    "gender.txt": ["woman", "man"],
-    "environment.txt": ["in a cozy cafe", "at home in natural light", "outdoors in golden hour"],
-    "hair_length.txt": ["short", "medium-length", "long", "shoulder-length"],
-    "hair_color.txt": ["black", "brown", "blonde", "auburn", "red"],
-    "hair_style.txt": ["flowing straight", "loose waves", "tight curls", "sleek and straight"],
-    "expression_type.txt": ["genuine smile", "soft smile", "confident look", "serene expression"],
-    "eye_description.txt": ["bright blue eyes", "warm brown eyes", "sparkling green eyes"],
-    "lip_description.txt": ["natural pink lips", "soft coral lips", "nude lips"],
-    "clothing_color.txt": ["white", "black", "navy blue", "cream", "beige"],
-    "clothing_garment.txt": ["t-shirt", "sweater", "blouse", "shirt", "tank top"],
-    "pose_description.txt": ["looking directly at camera", "resting chin on hand", "arms crossed casually"],
-    "studio_environment.txt": ["a professional photo studio", "an upscale photography studio"],
-    "formal_clothing.txt": ["business suit", "blazer", "dress shirt", "formal blouse"],
-    "studio_pose.txt": ["seated in director's chair", "standing with confident posture"],
-    "studio_background.txt": ["seamless white", "textured gray", "solid black", "gradient backdrop"]
-};
 
 function highlightVariables(template) {
     if (!template) return "";
@@ -297,45 +307,62 @@ function generateLivePreview(template, overrides = {}) {
 app.registerExtension({
     name: "EZPrompts.TemplateSystem",
     
+    async init() {
+        console.log("EZ Prompts: Extension init called");
+        await loadTemplateData();
+        await loadWildcardData();
+    },
+    
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        console.log("EZ Prompts: beforeRegisterNodeDef called for:", nodeData.name);
+        console.log("EZ Prompts: beforeRegisterNodeDef called for:", nodeType.comfyClass);
         
-        if (nodeData.name === "EZPromptsNode") {
-            console.log("EZ Prompts: Processing EZPromptsNode");
-            
-            // Load template data
-            await loadTemplateData();
-            
-            // Store original methods
-            const originalOnWidget = nodeType.prototype.onWidget;
-            const originalOnRemoved = nodeType.prototype.onRemoved;
-            
-            // Override onWidget to handle template changes
-            nodeType.prototype.onWidget = function(widget, value) {
-                console.log("EZ Prompts: onWidget called for:", widget.name, "with value:", value);
-                const result = originalOnWidget?.apply(this, arguments);
-                
-                // If template changed, rebuild UI
-                if (widget.name === "template") {
-                    console.log("EZ Prompts: Template changed, resetting overrides");
-                    this._variable_overrides = {}; // Reset overrides
-                    setTimeout(() => this.updateTemplateUI(), 10);
-                }
-                
-                return result;
-            };
-            
-            // Override onRemoved to clean up our UI
-            nodeType.prototype.onRemoved = function() {
-                console.log("EZ Prompts: onRemoved called");
-                if (this.ezUIContainer) {
-                    this.ezUIContainer.remove();
-                }
-                return originalOnRemoved?.apply(this, arguments);
-            };
-            
-            console.log("EZ Prompts: EZPromptsNode processing complete");
+        // Filter to only modify our specific node
+        if (nodeType.comfyClass !== "EZPromptsNode") {
+            return;
         }
+        
+        console.log("EZ Prompts: Processing EZPromptsNode");
+        
+        // Store original methods
+        const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+        const originalOnWidget = nodeType.prototype.onWidget;
+        const originalOnRemoved = nodeType.prototype.onRemoved;
+        
+        // Override onNodeCreated to add custom UI
+        nodeType.prototype.onNodeCreated = function() {
+            console.log("EZ Prompts: onNodeCreated called");
+            const result = originalOnNodeCreated?.apply(this, arguments);
+            
+            // Initialize custom UI after a short delay
+            setTimeout(() => this.setupCustomUI(), 100);
+            
+            return result;
+        };
+        
+        // Override onWidget to handle template changes
+        nodeType.prototype.onWidget = function(widget, value) {
+            console.log("EZ Prompts: onWidget called for:", widget.name, "with value:", value);
+            const result = originalOnWidget?.apply(this, arguments);
+            
+            // If template changed, rebuild variable widgets
+            if (widget.name === "template") {
+                console.log("EZ Prompts: Template changed, rebuilding variable widgets");
+                setTimeout(() => this.rebuildVariableWidgets(), 50);
+            }
+            
+            return result;
+        };
+        
+        // Override onRemoved to clean up
+        nodeType.prototype.onRemoved = function() {
+            console.log("EZ Prompts: onRemoved called");
+            if (this.ezUIContainer) {
+                this.ezUIContainer.remove();
+            }
+            return originalOnRemoved?.apply(this, arguments);
+        };
+        
+        console.log("EZ Prompts: EZPromptsNode processing complete");
     },
     
     async nodeCreated(node) {
@@ -344,250 +371,235 @@ app.registerExtension({
         if (node.comfyClass === "EZPromptsNode") {
             console.log("EZ Prompts: Processing EZPromptsNode instance");
             
-            // Initialize variable overrides storage
-            node._variable_overrides = {};
-            console.log("EZ Prompts: Variable overrides initialized");
-            
-            // Create custom widget for the UI
-            console.log("EZ Prompts: Creating EZ_Prompts_UI widget");
-            node.ezWidget = node.addWidget("STRING", "EZ_Prompts_UI", "", () => {}, {
-                serialize: false // Don't save this widget
-            });
-            console.log("EZ Prompts: EZ_Prompts_UI widget created:", node.ezWidget);
-            
-            // Build the custom UI after a short delay to ensure the widget is created
-            setTimeout(() => node.buildCustomUI(), 100);
-        }
-    },
-    
-    // Add method to build custom UI
-    buildCustomUI() {
-        console.log("EZ Prompts: buildCustomUI called");
-        
-        // Remove existing UI if it exists
-        if (this.ezUIContainer) {
-            console.log("EZ Prompts: Removing existing UI container");
-            this.ezUIContainer.remove();
-        }
-        
-        // Create UI container
-        const container = document.createElement("div");
-        container.className = "ez-prompts-container";
-        this.ezUIContainer = container;
-        console.log("EZ Prompts: Created UI container");
-        
-        // Title
-        const title = document.createElement("div");
-        title.className = "ez-prompts-title";
-        title.textContent = "EZ Prompts";
-        container.appendChild(title);
-        
-        // Template preview section
-        const previewSection = document.createElement("div");
-        const previewTitle = document.createElement("div");
-        previewTitle.className = "ez-prompts-section-title template";
-        previewTitle.textContent = "Template Structure";
-        previewSection.appendChild(previewTitle);
-        
-        const templatePreview = document.createElement("div");
-        templatePreview.className = "ez-prompts-preview";
-        templatePreview.innerHTML = "Select a template to see preview";
-        previewSection.appendChild(templatePreview);
-        container.appendChild(previewSection);
-        this.templatePreview = templatePreview;
-        
-        // Variables section
-        const variablesSection = document.createElement("div");
-        variablesSection.className = "ez-prompts-variables-section";
-        
-        const variablesHeader = document.createElement("div");
-        variablesHeader.className = "ez-prompts-variables-header";
-        variablesHeader.textContent = "Variable Controls";
-        variablesSection.appendChild(variablesHeader);
-        
-        this.variablesContainer = document.createElement("div");
-        variablesSection.appendChild(this.variablesContainer);
-        container.appendChild(variablesSection);
-        
-        // Live preview section
-        const liveSection = document.createElement("div");
-        const liveTitle = document.createElement("div");
-        liveTitle.className = "ez-prompts-section-title preview";
-        liveTitle.textContent = "Live Preview";
-        liveSection.appendChild(liveTitle);
-        
-        const livePreview = document.createElement("div");
-        livePreview.className = "ez-prompts-live-preview";
-        livePreview.innerHTML = "Live preview will appear here";
-        liveSection.appendChild(livePreview);
-        container.appendChild(liveSection);
-        this.livePreview = livePreview;
-        
-        // Wait for the widget element to be available
-        this.waitForWidgetElement(container);
-    },
-    
-    // Add method to wait for widget element
-    waitForWidgetElement(container) {
-        console.log("EZ Prompts: waitForWidgetElement called");
-        
-        const checkElement = () => {
-            console.log("EZ Prompts: Checking for widget element...");
-            console.log("EZ Prompts: this.ezWidget:", this.ezWidget);
-            
-            if (this.ezWidget && this.ezWidget.element) {
-                console.log("EZ Prompts: Widget element found, attaching UI");
-                this.attachCustomUI(container);
-            } else {
-                console.log("EZ Prompts: Widget element not ready, retrying...");
-                setTimeout(checkElement, 50);
-            }
-        };
-        
-        checkElement();
-    },
-    
-    // Add method to attach custom UI
-    attachCustomUI(container) {
-        console.log("EZ Prompts: attachCustomUI called");
-        
-        // Hide the original widget input
-        if (this.ezWidget.element) {
-            console.log("EZ Prompts: Hiding original widget input");
-            this.ezWidget.element.style.display = "none";
-            
-            // Find the widget container and insert our UI
-            const widgetContainer = this.ezWidget.element.closest('.comfy-widget');
-            if (widgetContainer) {
-                console.log("EZ Prompts: Adding custom UI to widget container");
-                widgetContainer.appendChild(container);
-                console.log("EZ Prompts: Custom UI added to widget container");
-                
-                // Update content after UI is attached
-                this.updateTemplateUI();
-            } else {
-                console.log("EZ Prompts: WARNING - Could not find widget container");
-            }
-        } else {
-            console.log("EZ Prompts: WARNING - Widget element still not available");
-        }
-    },
-    
-    // Add method to update template UI
-    updateTemplateUI() {
-        console.log("EZ Prompts: updateTemplateUI called");
-        
-        const templateWidget = this.widgets.find(w => w.name === "template");
-        console.log("EZ Prompts: templateWidget:", templateWidget);
-        
-        const currentTemplate = templateWidget?.value;
-        console.log("EZ Prompts: currentTemplate:", currentTemplate);
-        
-        if (!currentTemplate || !templateCache[currentTemplate]) {
-            console.log("EZ Prompts: No valid template found");
-            if (this.templatePreview) {
-                this.templatePreview.innerHTML = "Template not found";
-            }
-            if (this.variablesContainer) {
-                this.variablesContainer.innerHTML = "";
-            }
-            if (this.livePreview) {
-                this.livePreview.innerHTML = "No template selected";
-            }
-            return;
-        }
-        
-        const templateData = templateCache[currentTemplate];
-        console.log("EZ Prompts: Template data found:", templateData);
-        
-        // Update template preview
-        if (this.templatePreview) {
-            this.templatePreview.innerHTML = highlightVariables(templateData.template);
-        }
-        
-        // Clear and rebuild variables UI
-        if (this.variablesContainer) {
-            this.variablesContainer.innerHTML = "";
-            const variables = templateData.variables || {};
-            console.log("EZ Prompts: Building variables UI for:", Object.keys(variables));
-            
-            Object.entries(variables).forEach(([varName, wildcardFile]) => {
-                const control = document.createElement("div");
-                control.className = "ez-prompts-variable-control";
-                
-                const label = document.createElement("div");
-                label.className = "ez-prompts-variable-label";
-                label.textContent = varName.replace(/_/g, ' ');
-                control.appendChild(label);
-                
-                const select = document.createElement("select");
-                select.className = "ez-prompts-variable-select";
-                
-                // Add options
-                const randomOption = document.createElement("option");
-                randomOption.value = "🎲 Random";
-                randomOption.textContent = "🎲 Random";
-                select.appendChild(randomOption);
-                
-                // Add wildcard options
-                const options = wildcardData[wildcardFile] || [];
-                options.forEach(option => {
-                    const optionElement = document.createElement("option");
-                    optionElement.value = option;
-                    optionElement.textContent = option;
-                    select.appendChild(optionElement);
-                });
-                
-                // Set current value
-                const currentValue = this._variable_overrides[varName] || "🎲 Random";
-                select.value = currentValue;
-                
-                // Update styling
-                if (currentValue !== "🎲 Random") {
-                    select.classList.add("overridden");
-                }
-                
-                // Handle changes
-                select.addEventListener('change', (e) => {
-                    const newValue = e.target.value;
-                    this._variable_overrides[varName] = newValue;
-                    
-                    // Update styling
-                    if (newValue === "🎲 Random") {
-                        select.classList.remove("overridden");
-                    } else {
-                        select.classList.add("overridden");
-                    }
-                    
-                    // Update live preview
-                    this.updateLivePreview();
-                    
-                    // Trigger node execution to update the output
-                    if (this.graph) {
-                        this.graph.change();
-                    }
-                });
-                
-                control.appendChild(select);
-                this.variablesContainer.appendChild(control);
-            });
-        }
-        
-        // Update live preview
-        this.updateLivePreview();
-    },
-    
-    // Add method to update live preview
-    updateLivePreview() {
-        console.log("EZ Prompts: updateLivePreview called");
-        
-        const templateWidget = this.widgets.find(w => w.name === "template");
-        const currentTemplate = templateWidget?.value;
-        
-        if (currentTemplate && this.livePreview) {
-            this.livePreview.innerHTML = generateLivePreview(currentTemplate, this._variable_overrides);
+            // Add custom methods to the node instance
+            node.setupCustomUI = setupCustomUI;
+            node.rebuildVariableWidgets = rebuildVariableWidgets;
+            node.updateLivePreview = updateLivePreview;
+            node.variableOverrides = {};
         }
     }
 });
+
+// Custom UI setup function
+function setupCustomUI() {
+    console.log("EZ Prompts: setupCustomUI called");
+    
+    // Remove existing UI if it exists
+    if (this.ezUIContainer) {
+        this.ezUIContainer.remove();
+    }
+    
+    // Create UI container
+    const container = document.createElement("div");
+    container.className = "ez-prompts-container";
+    this.ezUIContainer = container;
+    
+    // Title
+    const title = document.createElement("div");
+    title.className = "ez-prompts-title";
+    title.textContent = "EZ Prompts";
+    container.appendChild(title);
+    
+    // Template preview section
+    const previewSection = document.createElement("div");
+    const previewTitle = document.createElement("div");
+    previewTitle.className = "ez-prompts-section-title template";
+    previewTitle.textContent = "Template Structure";
+    previewSection.appendChild(previewTitle);
+    
+    const templatePreview = document.createElement("div");
+    templatePreview.className = "ez-prompts-preview";
+    templatePreview.innerHTML = "Select a template to see preview";
+    previewSection.appendChild(templatePreview);
+    container.appendChild(previewSection);
+    this.templatePreview = templatePreview;
+    
+    // Variables section
+    const variablesSection = document.createElement("div");
+    variablesSection.className = "ez-prompts-variables-section";
+    
+    const variablesHeader = document.createElement("div");
+    variablesHeader.className = "ez-prompts-variables-header";
+    variablesHeader.textContent = "Variable Controls";
+    variablesSection.appendChild(variablesHeader);
+    
+    this.variablesContainer = document.createElement("div");
+    variablesSection.appendChild(this.variablesContainer);
+    container.appendChild(variablesSection);
+    
+    // Live preview section
+    const liveSection = document.createElement("div");
+    const liveTitle = document.createElement("div");
+    liveTitle.className = "ez-prompts-section-title preview";
+    liveTitle.textContent = "Live Preview";
+    liveSection.appendChild(liveTitle);
+    
+    const livePreview = document.createElement("div");
+    livePreview.className = "ez-prompts-live-preview";
+    livePreview.innerHTML = "Live preview will appear here";
+    liveSection.appendChild(livePreview);
+    container.appendChild(liveSection);
+    this.livePreview = livePreview;
+    
+    // Find the node's DOM element and attach our UI
+    this.waitForNodeElement(container);
+}
+
+// Wait for node element to be available
+function waitForNodeElement(container) {
+    const checkElement = () => {
+        if (this.element) {
+            console.log("EZ Prompts: Node element found, attaching UI");
+            this.attachCustomUI(container);
+        } else {
+            console.log("EZ Prompts: Node element not ready, retrying...");
+            setTimeout(checkElement, 50);
+        }
+    };
+    
+    checkElement();
+}
+
+// Attach custom UI to node
+function attachCustomUI(container) {
+    console.log("EZ Prompts: attachCustomUI called");
+    
+    // Find the node's widget area and insert our UI
+    const widgetArea = this.element.querySelector('.comfy-widgets');
+    if (widgetArea) {
+        console.log("EZ Prompts: Adding custom UI to widget area");
+        widgetArea.appendChild(container);
+        
+        // Update content after UI is attached
+        this.updateTemplateUI();
+    } else {
+        console.log("EZ Prompts: WARNING - Could not find widget area");
+    }
+}
+
+// Update template UI
+function updateTemplateUI() {
+    console.log("EZ Prompts: updateTemplateUI called");
+    
+    const templateWidget = this.widgets.find(w => w.name === "template");
+    const currentTemplate = templateWidget?.value;
+    
+    if (!currentTemplate || !templateCache[currentTemplate]) {
+        console.log("EZ Prompts: No valid template found");
+        if (this.templatePreview) {
+            this.templatePreview.innerHTML = "Template not found";
+        }
+        if (this.variablesContainer) {
+            this.variablesContainer.innerHTML = "";
+        }
+        if (this.livePreview) {
+            this.livePreview.innerHTML = "No template selected";
+        }
+        return;
+    }
+    
+    const templateData = templateCache[currentTemplate];
+    console.log("EZ Prompts: Template data found:", templateData);
+    
+    // Update template preview
+    if (this.templatePreview) {
+        this.templatePreview.innerHTML = highlightVariables(templateData.template);
+    }
+    
+    // Build variable widgets
+    this.rebuildVariableWidgets();
+}
+
+// Rebuild variable widgets
+function rebuildVariableWidgets() {
+    console.log("EZ Prompts: rebuildVariableWidgets called");
+    
+    const templateWidget = this.widgets.find(w => w.name === "template");
+    const currentTemplate = templateWidget?.value;
+    
+    if (!currentTemplate || !templateCache[currentTemplate]) {
+        return;
+    }
+    
+    const templateData = templateCache[currentTemplate];
+    const variables = templateData.variables || {};
+    
+    // Remove existing variable widgets
+    this.widgets = this.widgets.filter(w => !variables[w.name]);
+    
+    // Clear variables container
+    if (this.variablesContainer) {
+        this.variablesContainer.innerHTML = "";
+    }
+    
+    console.log("EZ Prompts: Building variable widgets for:", Object.keys(variables));
+    
+    // Create widgets for each variable
+    Object.entries(variables).forEach(([varName, wildcardFile]) => {
+        // Create the widget
+        const options = ["🎲 Random", ...(wildcardData[wildcardFile] || [])];
+        const widget = this.addWidget("COMBO", varName, "🎲 Random", (value) => {
+            console.log("EZ Prompts: Variable widget changed:", varName, value);
+            this.variableOverrides[varName] = value;
+            this.updateLivePreview();
+            
+            // Trigger node execution
+            if (this.graph) {
+                this.graph.change();
+            }
+        }, { values: options });
+        
+        // Create custom UI for this variable
+        if (this.variablesContainer) {
+            const control = document.createElement("div");
+            control.className = "ez-prompts-variable-control";
+            
+            const label = document.createElement("div");
+            label.className = "ez-prompts-variable-label";
+            label.textContent = varName.replace(/_/g, ' ');
+            control.appendChild(label);
+            
+            // Find the widget's select element and style it
+            setTimeout(() => {
+                const selectElement = widget.element?.querySelector('select');
+                if (selectElement) {
+                    selectElement.className = "ez-prompts-variable-select";
+                    
+                    // Update styling based on current value
+                    if (widget.value !== "🎲 Random") {
+                        selectElement.classList.add("overridden");
+                    }
+                    
+                    // Listen for changes to update styling
+                    selectElement.addEventListener('change', (e) => {
+                        if (e.target.value === "🎲 Random") {
+                            selectElement.classList.remove("overridden");
+                        } else {
+                            selectElement.classList.add("overridden");
+                        }
+                    });
+                }
+            }, 10);
+            
+            control.appendChild(widget.element || document.createElement('div'));
+            this.variablesContainer.appendChild(control);
+        }
+    });
+    
+    // Update live preview
+    this.updateLivePreview();
+}
+
+// Update live preview
+function updateLivePreview() {
+    console.log("EZ Prompts: updateLivePreview called");
+    
+    const templateWidget = this.widgets.find(w => w.name === "template");
+    const currentTemplate = templateWidget?.value;
+    
+    if (currentTemplate && this.livePreview) {
+        this.livePreview.innerHTML = generateLivePreview(currentTemplate, this.variableOverrides);
+    }
+}
 
 console.log("EZ Prompts: Extension registration complete");
