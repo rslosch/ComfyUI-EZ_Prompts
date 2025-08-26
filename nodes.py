@@ -1,6 +1,7 @@
 # template_node.py
 import json
 import os
+import random
 from server import PromptServer
 from aiohttp import web
 
@@ -15,9 +16,21 @@ class EZPromptsNode:
     
     @classmethod
     def INPUT_TYPES(cls):
+        # Load templates to get available choices
+        templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ComfyUI-EZ_Prompts", "templates")
+        if not os.path.exists(templates_dir):
+            templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+        
+        template_choices = ["none"]
+        if os.path.exists(templates_dir):
+            for filename in os.listdir(templates_dir):
+                if filename.endswith('.json'):
+                    template_name = filename[:-5]  # Remove .json extension
+                    template_choices.append(template_name)
+        
         return {
             "required": {
-                "template": (["none"], {"default": "none"}),
+                "template": (template_choices, {"default": "none"}),
             },
             "optional": {
                 # Dynamic inputs will be added by JavaScript
@@ -69,7 +82,7 @@ class EZPromptsNode:
                                 "name": var_name,
                                 "type": "select",
                                 "label": var_name.replace('_', ' ').title(),
-                                "defaultValue": "",
+                                "defaultValue": "Random", # Changed default value
                                 "wildcard_file": wildcard_name,  # Store reference to wildcard file
                                 "options": {
                                     "choices": []  # Will be populated with wildcard values
@@ -126,9 +139,10 @@ class EZPromptsNode:
                     wildcard_name = param["wildcard_file"]
                     wildcard_values = self.wildcards.get(wildcard_name, [])
                     
-                    param["options"]["choices"] = wildcard_values
-                    if wildcard_values:
-                        param["defaultValue"] = wildcard_values[0]
+                    # Add "Random" as the first choice and set as default
+                    choices = ["Random"] + wildcard_values
+                    param["options"]["choices"] = choices
+                    param["defaultValue"] = "Random"
     
     def generate_prompt(self, template, unique_id=None, extra_pnginfo=None, **kwargs):
         """Generate the final prompt by substituting template parameters"""
@@ -147,6 +161,19 @@ class EZPromptsNode:
         for param in template_data["parameters"]:
             param_name = param["name"]
             param_value = kwargs.get(param_name, param.get("defaultValue", ""))
+            
+            # Handle "Random" values by selecting from available choices
+            if param_value == "Random":
+                choices = param["options"]["choices"]
+                if len(choices) > 1:  # More than just "Random"
+                    # Select random choice excluding "Random"
+                    available_choices = [choice for choice in choices if choice != "Random"]
+                    if available_choices:
+                        param_value = random.choice(available_choices)
+                    else:
+                        param_value = ""
+                else:
+                    param_value = ""
             
             # Convert to string if needed
             if param_value is not None:

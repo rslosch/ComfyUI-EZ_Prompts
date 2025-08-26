@@ -195,7 +195,10 @@ app.registerExtension({
                             console.warn(`No choices available for wildcard: ${wildcard_file}`);
                         }
                         
-                        widget = this.addWidget("combo", name, defaultValue || choices[0] || "",
+                        // Set default to "Random" if available, otherwise first choice
+                        const defaultVal = choices.includes("Random") ? "Random" : (choices[0] || "");
+                        
+                        widget = this.addWidget("combo", name, defaultVal,
                             (value) => this.onParameterChanged(name, value),
                             {
                                 values: choices,
