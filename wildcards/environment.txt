@@ -1,10 +1,39 @@
-in a cozy cafe
-at home in natural light
-outdoors in golden hour
-in a modern apartment
-by a large window
-in a bright room
-at the beach
-in a park setting
-in an urban environment
-in a garden setting 
+in a front seat of a car interior. The interior features black leather seats and trim details
+in a front seat of a car interior. The interior features tan leather seats and trim details
+in a front seat of a car interior. The interior features white leather seats and trim details
+in a front seat of a luxury car interior. The interior features premium black Nappa leather seats with diamond stitching and brushed aluminum trim accents
+in a front seat of a sports car interior. The interior features red leather racing seats with carbon fiber details and a flat-bottom steering wheel
+in a front seat of a modern car interior. The interior features gray Alcantara seats with contrast stitching and piano black trim elements
+in a front seat of an executive sedan interior. The interior features cream perforated leather seats with wood grain panels and ambient lighting
+in a front seat of a vintage car interior. The interior features burgundy leather bench seats with chrome details and classic analog gauges
+in a front seat of an SUV interior. The interior features brown leather captain chairs with quilted patterns and metallic trim accents
+in a front seat of a luxury coupe interior. The interior features white leather sport seats with black piping and carbon fiber console details
+in a front seat of a premium car interior. The interior features cognac leather seats with contrast white stitching and brushed metal trim
+in a front seat of a modern electric vehicle interior. The interior features vegan leather seats in light gray with minimalist trim and a large touchscreen
+in a front seat of a high-end car interior. The interior features navy blue leather seats with ventilation patterns and satin chrome accents
+in a front seat of a grand tourer interior. The interior features tan leather seats with heritage stitching patterns and polished wood trim
+in a front seat of a luxury SUV interior. The interior features beige leather seats with massage function and ambient light strips
+in a front seat of a sports sedan interior. The interior features black Alcantara seats with red accent stitching and aluminum pedals
+in a front seat of a premium crossover interior. The interior features ivory leather seats with geometric patterns and dark wood inlays
+in a front seat of an exotic car interior. The interior features black and yellow leather seats with exposed carbon fiber and metal switchgear
+in a front seat of a luxury hybrid interior. The interior features olive green sustainable leather seats with recycled trim materials
+in a front seat of a premium sedan interior. The interior features mocha brown leather seats with diamond quilting and metallic mesh accents
+in a front seat of a modern coupe interior. The interior features slate gray leather seats with perforated inserts and dark chrome trim
+in a living room with a plush velvet sectional sofa, abstract canvas artwork, and brass floor lamp casting warm light
+in a modern living space with floor-to-ceiling windows, minimalist white furniture, and geometric wall sculptures
+in a cozy den featuring a leather armchair, built-in bookshelves filled with books, and a vintage Persian rug
+in an open-concept living area with exposed brick walls, industrial pendant lights, and mid-century modern furniture
+in a luxurious sitting room with crystal chandelier, marble fireplace, and silk upholstered furniture pieces
+in a bohemian living space with macramé wall hangings, layered vintage rugs, and an abundance of indoor plants
+in a contemporary living room with floating entertainment unit, designer accent chairs, and statement wall art
+in a Scandinavian-style space with light wood floors, white walls, and carefully curated minimalist décor
+in an art deco inspired room with gold accents, curved velvet furniture, and bold geometric patterns
+in a coastal living room with sheer white curtains, natural rattan furniture, and blue accent pieces
+in a rustic living space with exposed wooden beams, stone fireplace, and comfortable leather seating
+in a penthouse living room with panoramic city views, low-profile Italian furniture, and abstract sculptures
+in a traditional living room with crown molding, tufted chesterfield sofa, and antique side tables
+in a zen-inspired space with natural bamboo elements, low-profile seating, and minimalist water features
+in a glamorous sitting room with mirrored furniture pieces, crystal sconces, and plush white carpet
+in a studio apartment living area with multi-functional furniture, gallery wall, and sleek storage solutions
+in an eclectic living room with mixed pattern textiles, vintage finds, and colorful artwork collections
+in a modern farmhouse space with shiplap walls, comfortable linen furniture, and industrial lighting fixtures

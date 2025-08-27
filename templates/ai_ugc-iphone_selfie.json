@@ -1,7 +1,7 @@
 {
     "name": "ai_ugc-iphone_selfie",
     "description": "iPhone selfie portrait template for UGC content",
-    "template": "An iphone selfie portrait of a beautiful {age} {ethnicity} {gender} captured {environment}. The {gender} has {hair_length} {hair_color} hair {hair_style}. The subject has {lip_description} and a {expression_type} with {eye_description}. The subject is wearing {clothing_color} {clothing_garment} while {pose_description}. The selfie is photographed with natural lighting providing even front lighting. The composition is centered and captured in close-up frame, emphasizing the subject's facial features and expression. Close-up portrait photography with natural lighting and centered framing.",
+    "template": "An iphone selfie portrait of a beautiful {age} {ethnicity} {gender} captured {environment}. The {gender} has {hair_length} {hair_color} hair {hair_style}. The subject has {lip_description} and a {expression_type} with {eye_description}. The subject is wearing {clothing_color} {clothing_garment} while {pose_description}. The selfie is photographed with natural lighting providing even front lighting. The composition is centered and captured in close-up frame, emphasizing the subject's facial features and expression.",
     "variables": {
       "age": "age.txt",
       "ethnicity": "ethnicity.txt", 

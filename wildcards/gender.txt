@@ -1,4 +1,2 @@
 woman
-man
 girl
-boy
