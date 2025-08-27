@@ -2,14 +2,17 @@
 EZ Prompts - ComfyUI Template-based Prompt Generation
 """
 
-from .nodes import EZPromptsNode
+from .nodes.ez_prompt_node import EZPromptsNode
+from .nodes.outpaint_by_aspect_ratio import PadImageForOutpaintByAspectRatio
 
 NODE_CLASS_MAPPINGS = {
-    "EZPromptsNode": EZPromptsNode
+    "EZPromptsNode": EZPromptsNode,
+    "PadImageForOutpaintByAspectRatio": PadImageForOutpaintByAspectRatio
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "EZPromptsNode": "EZ Prompts"
+    "EZPromptsNode": "EZ Prompts",
+    "PadImageForOutpaintByAspectRatio": "Pad Image for Outpaint by Aspect Ratio"
 }
 
 WEB_DIRECTORY = "./js"
