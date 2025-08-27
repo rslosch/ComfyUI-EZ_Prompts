@@ -19,7 +19,7 @@ class EZPromptsNode:
     @classmethod
     def INPUT_TYPES(cls):
         # Load templates to get available choices
-        templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+        templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
         
         template_choices = []
         if os.path.exists(templates_dir):
@@ -62,7 +62,7 @@ class EZPromptsNode:
     
     def load_templates(self):
         """Load template definitions from .json files"""
-        templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+        templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
         os.makedirs(templates_dir, exist_ok=True)
         
         templates = {}
@@ -125,7 +125,7 @@ class EZPromptsNode:
     
     def load_wildcards(self):
         """Load wildcard values from .txt files, only for those referenced in templates"""
-        wildcards_dir = os.path.join(os.path.dirname(__file__), "wildcards")
+        wildcards_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "wildcards")
         os.makedirs(wildcards_dir, exist_ok=True)
         
         print(f"Wildcards directory: {wildcards_dir}")
@@ -307,7 +307,7 @@ class EZPromptsNode:
                 # Get the choices from the wildcard file
                 wildcard_name = param.get("wildcard_file", "")
                 if wildcard_name:
-                    wildcard_path = os.path.join(os.path.dirname(__file__), "wildcards", f"{wildcard_name}.txt")
+                    wildcard_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "wildcards", f"{wildcard_name}.txt")
                     if os.path.exists(wildcard_path):
                         try:
                             with open(wildcard_path, 'r', encoding='utf-8') as wf:

@@ -54,8 +54,11 @@ The `wildcards/` directory contains text files with lists of options that can be
 ```
 ComfyUI-EZ_Prompts/
 ├── __init__.py          # Node registration
-├── nodes.py            # Custom node implementations
-├── prompt_templates.js # Frontend JavaScript components
+├── nodes/              # Custom node implementations
+│   ├── ez_prompt_node.py
+│   └── outpaint_by_aspect_ratio.py
+├── js/                 # Frontend JavaScript components
+│   └── prompt_templates.js
 ├── requirements.txt    # Python dependencies
 ├── templates/         # Prompt template files
 ├── wildcards/         # Wildcard text files
