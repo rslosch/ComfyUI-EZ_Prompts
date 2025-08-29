@@ -45,7 +45,7 @@ class LoadImageSetFromFolderSortedNode:
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "load_images"
     CATEGORY = "loaders"
-    EXPERIMENTAL = True
+    EXPERIMENTAL = False
     DESCRIPTION = "Loads a batch of images from a selected input subfolder, sorted by filename."
 
     def load_images(self, folder: str, resize_method: str, sort_order: str = "Ascending", natural_sort: bool = True, case_sensitive: bool = False):
