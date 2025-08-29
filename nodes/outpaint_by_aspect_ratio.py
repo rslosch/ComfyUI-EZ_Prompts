@@ -57,7 +57,7 @@ class PadImageForOutpaintByAspectRatio:
     RETURN_TYPES = ("IMAGE", "MASK", "INT", "INT")
     RETURN_NAMES = ("image", "mask", "width", "height")
     FUNCTION = "process_image"
-    CATEGORY = "Infinite Madness"
+    CATEGORY = "EZ Prompts"
 
     def get_target_dimensions(self, ratio):
         """
